@@ -1,34 +1,23 @@
-.App-logo {
-    height: 40vmin;
-    pointer-events: none;
+/* Paper-notebook backdrop: cream base with subtle warm grain and faint ruled lines */
+.studyflow-bg {
+  background-color: #f5ead0;
+  background-image:
+    radial-gradient(rgba(122, 75, 28, 0.06) 1px, transparent 1px),
+    linear-gradient(
+      to bottom,
+      rgba(217, 201, 165, 0.35) 1px,
+      transparent 1px
+    );
+  background-size:
+    12px 12px,
+    100% 32px;
+  background-position:
+    0 0,
+    0 0;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-    .App-logo {
-        animation: App-logo-spin infinite 20s linear;
-    }
-}
-
-.App-header {
-    background-color: #0f0f10;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-size: calc(10px + 2vmin);
-    color: white;
-}
-
-.App-link {
-    color: #61dafb;
-}
-
-@keyframes App-logo-spin {
-    from {
-        transform: rotate(0deg);
-    }
-    to {
-        transform: rotate(360deg);
-    }
+/* Selection styling to match warm palette */
+::selection {
+  background: #e2ca86;
+  color: #3b2411;
 }
