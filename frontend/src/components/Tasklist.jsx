@@ -1,5 +1,5 @@
 import React from "react";
-import { TaskCard } from "./TaskCard";
+import { TaskCard } from "./taskcard";
 import { NotebookPen, SearchX } from "lucide-react";
 
 const EmptyState = ({ icon: Icon, title, subtitle, testId }) => (
