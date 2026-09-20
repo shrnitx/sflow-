@@ -698,8 +698,16 @@ const saveEdit = (event) => {
 
                       </div>
                     </div>
-
                     <div className="task-actions">
+
+                      <button
+                        type="button"
+                        className="small-button edit-button"
+                        onClick={() => startEdit(task)}
+                      >
+                        <Pencil size={15} />
+                        Edit
+                      </button>
 
                       <button
                         type="button"
@@ -754,6 +762,143 @@ const saveEdit = (event) => {
         </footer>
 
       </main>
+
+      {editingId && (
+        <div
+          className="edit-dialog-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              cancelEdit();
+            }
+          }}
+        >
+          <form
+            className="edit-dialog"
+            onSubmit={saveEdit}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-dialog-title"
+          >
+            <div className="edit-dialog-heading">
+              <div>
+                <span className="section-kicker">UPDATE YOUR WORK</span>
+                <h2 id="edit-dialog-title">Edit task</h2>
+              </div>
+
+              <button
+                type="button"
+                className="dialog-close-button"
+                onClick={cancelEdit}
+                aria-label="Close edit dialog"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="edit-dialog-form">
+              <div className="field full">
+                <label htmlFor="edit-title">Task title</label>
+                <input
+                  id="edit-title"
+                  value={editForm.title}
+                  onChange={(event) =>
+                    setEditForm((current) => ({
+                      ...current,
+                      title: event.target.value,
+                    }))
+                  }
+                  autoFocus
+                />
+              </div>
+
+              <div className="field">
+                <label htmlFor="edit-subject">Subject</label>
+                <select
+                  id="edit-subject"
+                  value={editForm.subject}
+                  onChange={(event) =>
+                    setEditForm((current) => ({
+                      ...current,
+                      subject: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="">Select a subject...</option>
+                  {SUBJECTS.map((subject) => (
+                    <option key={subject} value={subject}>
+                      {subject}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field">
+                <label htmlFor="edit-deadline">Deadline</label>
+                <input
+                  id="edit-deadline"
+                  type="date"
+                  value={editForm.deadline}
+                  onChange={(event) =>
+                    setEditForm((current) => ({
+                      ...current,
+                      deadline: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="field">
+                <label htmlFor="edit-priority">Priority</label>
+                <select
+                  id="edit-priority"
+                  value={editForm.priority}
+                  onChange={(event) =>
+                    setEditForm((current) => ({
+                      ...current,
+                      priority: event.target.value,
+                    }))
+                  }
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                </select>
+              </div>
+
+              <div className="field full">
+                <label htmlFor="edit-description">
+                  Description <span>(optional)</span>
+                </label>
+                <input
+                  id="edit-description"
+                  value={editForm.description}
+                  onChange={(event) =>
+                    setEditForm((current) => ({
+                      ...current,
+                      description: event.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="edit-dialog-actions">
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={cancelEdit}
+              >
+                Cancel
+              </button>
+              <button type="submit" className="primary-button">
+                <Check size={17} />
+                Save changes
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {toast && (
         <div className="toast">
