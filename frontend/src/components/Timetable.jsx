@@ -8,7 +8,9 @@ import {
 } from "lucide-react";
 import {
   DAYS,
+  WEEKDAYS,
   formatTime,
+  sortClassesByTime,
   timeToMinutes,
 } from "../utils/timetable";
 import { makeId } from "../utils/storage";
@@ -26,16 +28,12 @@ function Timetable({ timetable, setTimetable, setToast }) {
   const [error, setError] = useState("");
 
   const groupedDays = useMemo(() => {
-    return DAYS.map((day, dayIndex) => ({
-      day,
+    return WEEKDAYS.map((dayIndex) => ({
+      day: DAYS[dayIndex],
       dayIndex,
-      classes: timetable
-        .filter((item) => item.day === dayIndex)
-        .sort(
-          (a, b) =>
-            timeToMinutes(a.startTime) -
-            timeToMinutes(b.startTime)
-        ),
+      classes: sortClassesByTime(
+        timetable.filter((item) => item.day === dayIndex)
+      ),
     }));
   }, [timetable]);
 
@@ -50,6 +48,13 @@ function Timetable({ timetable, setTimetable, setToast }) {
 
     if (!form.subject.trim()) {
       setError("Please enter a subject.");
+      return;
+    }
+
+    const day = Number(form.day);
+
+    if (!Number.isInteger(day) || day < 0 || day > 6) {
+      setError("Please choose a valid day.");
       return;
     }
 
@@ -73,7 +78,7 @@ function Timetable({ timetable, setTimetable, setToast }) {
             ? {
                 ...item,
                 subject: form.subject.trim(),
-                day: Number(form.day),
+                day,
                 startTime: form.startTime,
                 endTime: form.endTime,
               }
@@ -86,10 +91,11 @@ function Timetable({ timetable, setTimetable, setToast }) {
       const newClass = {
         id: makeId(),
         subject: form.subject.trim(),
-        day: Number(form.day),
+        day,
         startTime: form.startTime,
         endTime: form.endTime,
         recurring: true,
+        createdAt: new Date().toISOString(),
       };
 
       setTimetable((current) => [
@@ -196,9 +202,9 @@ function Timetable({ timetable, setTimetable, setToast }) {
               }))
             }
           >
-            {DAYS.map((day, index) => (
-              <option key={day} value={index}>
-                {day}
+            {WEEKDAYS.map((dayIndex) => (
+              <option key={dayIndex} value={dayIndex}>
+                {DAYS[dayIndex]}
               </option>
             ))}
           </select>

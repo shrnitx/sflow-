@@ -13,7 +13,19 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { loadTasks, saveTasks, makeId } from "./utils/storage";
+
+import {
+  loadTasks,
+  saveTasks,
+  loadTimetable,
+  saveTimetable,
+  makeId,
+} from "./utils/storage";
+
+import TodayClasses from "./components/TodayClasses";
+import ClassDetails from "./components/ClassDetails";
+import Timetable from "./components/Timetable";
+
 import "./App.css";
 
 const SUBJECTS = [
@@ -84,6 +96,17 @@ function App() {
     }
   });
 
+  const [timetable, setTimetable] = useState(() => {
+    try {
+      const saved = loadTimetable();
+      return Array.isArray(saved) ? saved : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [selectedClass, setSelectedClass] = useState(null);
+
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
   const [search, setSearch] = useState("");
@@ -98,6 +121,10 @@ function App() {
   }, [tasks]);
 
   useEffect(() => {
+    saveTimetable(timetable);
+  }, [timetable]);
+
+  useEffect(() => {
     if (!toast) return;
 
     const timer = setTimeout(() => {
@@ -106,7 +133,6 @@ function App() {
 
     return () => clearTimeout(timer);
   }, [toast]);
-
   const stats = useMemo(() => {
     const completed = tasks.filter((task) => task.completed).length;
 
@@ -335,6 +361,17 @@ const saveEdit = (event) => {
             </span>
           </div>
         </header>
+
+        <TodayClasses
+          timetable={timetable}
+          onSelectClass={setSelectedClass}
+        />
+
+        <Timetable
+          timetable={timetable}
+          setTimetable={setTimetable}
+          setToast={setToast}
+        />
 
         <section className="stats-grid">
 
@@ -898,6 +935,14 @@ const saveEdit = (event) => {
             </div>
           </form>
         </div>
+      )}
+
+      {selectedClass && (
+        <ClassDetails
+          classItem={selectedClass}
+          tasks={tasks}
+          onClose={() => setSelectedClass(null)}
+        />
       )}
 
       {toast && (

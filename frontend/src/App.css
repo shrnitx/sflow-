@@ -334,6 +334,311 @@ select {
   padding: 0 11px;
 }
 
+.today-classes-panel,
+.timetable-panel {
+  padding: 24px;
+  margin-bottom: 18px;
+}
+
+.today-heading {
+  align-items: flex-start;
+}
+
+.today-day-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--brown);
+  background: rgba(255, 250, 237, 0.72);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.next-class-card {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 20px;
+  padding: 16px 18px;
+  border: 1px solid #c8b58b;
+  border-radius: 15px;
+  background: #f3e7c9;
+  color: var(--brown);
+}
+
+.next-class-kicker {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--orange);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.next-class-card h3 {
+  margin: 0;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.25rem;
+}
+
+.next-class-card p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
+.next-class-status,
+.class-state-label {
+  display: inline-block;
+  margin-top: 7px;
+  color: var(--orange);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.today-no-more {
+  margin-top: 20px;
+  padding: 12px 14px;
+  border-radius: 11px;
+  background: rgba(229, 234, 219, 0.65);
+  color: var(--green);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.today-empty-state {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 20px;
+  padding: 16px;
+  border: 1px dashed var(--line-dark);
+  border-radius: 14px;
+  color: var(--green);
+  background: rgba(255, 250, 237, 0.5);
+}
+
+.today-empty-state h3,
+.today-empty-state p {
+  margin: 0;
+}
+
+.today-empty-state h3 {
+  color: var(--ink);
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1rem;
+}
+
+.today-empty-state p {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.today-class-list {
+  display: grid;
+  gap: 9px;
+  margin-top: 20px;
+}
+
+.today-class-card {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  text-align: left;
+  background: rgba(255, 250, 237, 0.78);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, transform 150ms ease;
+}
+
+.today-class-card:hover,
+.today-class-card:focus-visible {
+  border-color: #b98842;
+  background: #fffaf0;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.today-class-card.is-live {
+  border-color: #95ae7e;
+  background: #edf4e5;
+}
+
+.today-class-card.is-completed {
+  opacity: 0.65;
+}
+
+.today-class-time {
+  display: grid;
+  gap: 2px;
+  color: var(--brown);
+  font-size: 0.78rem;
+}
+
+.today-class-time strong {
+  font-size: 0.9rem;
+}
+
+.today-class-time span,
+.today-class-info h3 {
+  color: var(--muted);
+}
+
+.today-class-info h3 {
+  display: inline-block;
+  margin: 0;
+  color: var(--ink);
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1rem;
+}
+
+.live-pill {
+  display: inline-flex;
+  margin-left: 8px;
+  padding: 4px 7px;
+  border-radius: 999px;
+  background: var(--green);
+  color: #f8f8e9;
+  font-size: 0.62rem;
+  font-weight: 800;
+}
+
+.timetable-form {
+  display: grid;
+  grid-template-columns: 1.4fr repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 22px;
+}
+
+.timetable-form-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 9px;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+}
+
+.timetable-error {
+  grid-column: 1 / -1;
+  margin-top: -5px;
+}
+
+.weekly-timetable {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.timetable-day {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255, 250, 237, 0.6);
+}
+
+.timetable-day-heading,
+.timetable-day-heading > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 9px;
+}
+
+.timetable-day-heading > div {
+  justify-content: flex-start;
+  color: var(--brown);
+}
+
+.timetable-day-heading > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.timetable-day-empty {
+  margin-top: 13px;
+  color: #a4855a;
+  font-size: 0.78rem;
+}
+
+.timetable-day-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.timetable-entry {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding-top: 9px;
+  border-top: 1px solid rgba(217, 201, 165, 0.7);
+}
+
+.timetable-entry-time {
+  display: grid;
+  color: var(--brown);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.timetable-entry-time span,
+.timetable-entry-subject span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+}
+
+.timetable-entry-subject {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.timetable-entry-subject strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.82rem;
+}
+
+.timetable-entry-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.icon-button {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--brown);
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  background: #f5ecd8;
+}
+
+.icon-button.danger {
+  color: #99422a;
+}
+
 .ghost-button {
   display: inline-flex;
   align-items: center;
@@ -702,7 +1007,8 @@ select {
   }
 
   .stats-grid,
-  .task-form {
+  .task-form,
+  .timetable-form {
     grid-template-columns: 1fr;
   }
 
@@ -742,6 +1048,25 @@ select {
 
   .form-panel {
     padding: 18px;
+  }
+
+  .today-classes-panel,
+  .timetable-panel {
+    padding: 18px;
+  }
+
+  .weekly-timetable {
+    grid-template-columns: 1fr;
+  }
+
+  .today-class-card {
+    grid-template-columns: 82px minmax(0, 1fr) auto;
+    gap: 10px;
+  }
+
+  .timetable-form-actions,
+  .timetable-error {
+    grid-column: auto;
   }
 
   .hero h1 {

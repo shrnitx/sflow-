@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
   CalendarDays,
@@ -9,42 +9,42 @@ import {
   DAYS,
   formatTime,
   getTodayDay,
+  isTimeInRange,
+  sortClassesByTime,
   timeToMinutes,
 } from "../utils/timetable";
 
 function TodayClasses({ timetable, onSelectClass }) {
   const todayDay = getTodayDay();
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   const todayClasses = useMemo(() => {
-    return timetable
-      .filter((item) => item.day === todayDay)
-      .sort(
-        (a, b) =>
-          timeToMinutes(a.startTime) - timeToMinutes(b.startTime)
-      );
+    return sortClassesByTime(
+      timetable.filter((item) => item.day === todayDay)
+    );
   }, [timetable, todayDay]);
 
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
   const nextClass = useMemo(() => {
-    const now = new Date();
-
-    const currentMinutes =
-      now.getHours() * 60 + now.getMinutes();
-
     return todayClasses.find(
       (item) => timeToMinutes(item.endTime) > currentMinutes
     );
-  }, [todayClasses]);
+  }, [todayClasses, currentMinutes]);
 
-  const currentTime = new Date();
+  const getClassState = (item) => {
+    if (isTimeInRange(currentMinutes, item.startTime, item.endTime)) {
+      return "live";
+    }
 
-  const currentMinutes =
-    currentTime.getHours() * 60 + currentTime.getMinutes();
-
-  const isClassLive = (item) => {
-    const start = timeToMinutes(item.startTime);
-    const end = timeToMinutes(item.endTime);
-
-    return currentMinutes >= start && currentMinutes < end;
+    return currentMinutes >= timeToMinutes(item.endTime)
+      ? "completed"
+      : "upcoming";
   };
 
   return (
@@ -61,7 +61,7 @@ function TodayClasses({ timetable, onSelectClass }) {
         </div>
       </div>
 
-      {nextClass && (
+      {nextClass ? (
         <div className="next-class-card">
           <div>
             <span className="next-class-kicker">
@@ -74,11 +74,22 @@ function TodayClasses({ timetable, onSelectClass }) {
               {formatTime(nextClass.startTime)} –{" "}
               {formatTime(nextClass.endTime)}
             </p>
+
+            <span className="next-class-status">
+              {getClassState(nextClass) === "live"
+                ? "Live now"
+                : `Starts in ${Math.max(
+                    0,
+                    timeToMinutes(nextClass.startTime) - currentMinutes
+                  )} min`}
+            </span>
           </div>
 
           <Clock3 size={22} />
         </div>
-      )}
+      ) : todayClasses.length > 0 ? (
+        <div className="today-no-more">No more classes today</div>
+      ) : null}
 
       {todayClasses.length === 0 ? (
         <div className="today-empty-state">
@@ -94,12 +105,14 @@ function TodayClasses({ timetable, onSelectClass }) {
       ) : (
         <div className="today-class-list">
           {todayClasses.map((item) => (
+            (() => {
+              const classState = getClassState(item);
+
+              return (
             <button
               key={item.id}
               type="button"
-              className={`today-class-card ${
-                isClassLive(item) ? "is-live" : ""
-              }`}
+              className={`today-class-card is-${classState}`}
               onClick={() => onSelectClass(item)}
             >
               <div className="today-class-time">
@@ -113,15 +126,21 @@ function TodayClasses({ timetable, onSelectClass }) {
               <div className="today-class-info">
                 <h3>{item.subject}</h3>
 
-                {isClassLive(item) && (
+                {classState === "live" && (
                   <span className="live-pill">
                     LIVE NOW
                   </span>
+                )}
+
+                {classState === "completed" && (
+                  <span className="class-state-label">COMPLETED</span>
                 )}
               </div>
 
               <ArrowRight size={19} />
             </button>
+              );
+            })()
           ))}
         </div>
       )}

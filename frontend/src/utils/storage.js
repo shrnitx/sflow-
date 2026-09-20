@@ -48,6 +48,8 @@ export const loadTimetable = () => {
         typeof item.id === "string" &&
         typeof item.subject === "string" &&
         Number.isInteger(item.day) &&
+        item.day >= 0 &&
+        item.day <= 6 &&
         typeof item.startTime === "string" &&
         typeof item.endTime === "string"
     );
