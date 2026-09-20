@@ -6,12 +6,13 @@ import {
   Clock3,
   Flame,
   ListChecks,
+  Pencil,
   Plus,
   RotateCcw,
   Search,
   Trash2,
+  X,
 } from "lucide-react";
-
 import { loadTasks, saveTasks, makeId } from "./utils/storage";
 import "./App.css";
 
@@ -90,6 +91,8 @@ function App() {
   const [priority, setPriority] = useState("All");
   const [toast, setToast] = useState("");
 
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState(EMPTY_FORM);
   useEffect(() => {
     saveTasks(tasks);
   }, [tasks]);
