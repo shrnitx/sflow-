@@ -245,7 +245,60 @@ function App() {
     setTasks((current) => current.filter((item) => item.id !== id));
     setToast("Task deleted.");
   };
+const startEdit = (task) => {
+  setEditingId(task.id);
 
+  setEditForm({
+    title: task.title || "",
+    subject: task.subject || "",
+    deadline: task.deadline || "",
+    priority: task.priority || "Medium",
+    description: task.description || "",
+  });
+};
+
+const cancelEdit = () => {
+  setEditingId(null);
+  setEditForm(EMPTY_FORM);
+};
+
+const saveEdit = (event) => {
+  event.preventDefault();
+
+  if (!editForm.title.trim()) {
+    setToast("Task title is required.");
+    return;
+  }
+
+  if (!editForm.subject) {
+    setToast("Please select a subject.");
+    return;
+  }
+
+  if (!editForm.deadline) {
+    setToast("Please select a deadline.");
+    return;
+  }
+
+  setTasks((current) =>
+    current.map((task) =>
+      task.id === editingId
+        ? {
+            ...task,
+            title: editForm.title.trim(),
+            subject: editForm.subject,
+            deadline: editForm.deadline,
+            priority: editForm.priority,
+            description: editForm.description.trim(),
+          }
+        : task
+    )
+  );
+
+  setEditingId(null);
+  setEditForm(EMPTY_FORM);
+  setToast("Task updated successfully.");
+};
   const resetFilters = () => {
     setSearch("");
     setStatus("All");
