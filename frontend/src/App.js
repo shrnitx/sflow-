@@ -26,8 +26,8 @@ import TodayClasses from "./components/TodayClasses";
 import ClassDetails from "./components/ClassDetails";
 import Timetable from "./components/Timetable";
 
-import Login from "./components/auth/Login";
-import Signup from "./components/auth/Signup";
+import Login from "./components/auth/loginogin";
+import Signup from "./components/auth/signupignup";
 import { useAuth } from "./context/AuthContext";
 
 import "./App.css";
