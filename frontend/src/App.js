@@ -26,6 +26,10 @@ import TodayClasses from "./components/TodayClasses";
 import ClassDetails from "./components/ClassDetails";
 import Timetable from "./components/Timetable";
 
+import Login from "./components/auth/Login";
+import Signup from "./components/auth/Signup";
+import { useAuth } from "./context/AuthContext";
+
 import "./App.css";
 
 const SUBJECTS = [
@@ -87,6 +91,9 @@ function daysOverdue(task) {
 }
 
 function App() {
+  const { user, loading } = useAuth();
+  const [showSignup, setShowSignup] = useState(false);
+
   const [tasks, setTasks] = useState(() => {
     try {
       const saved = loadTasks();
@@ -116,6 +123,7 @@ function App() {
 
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
+
   useEffect(() => {
     saveTasks(tasks);
   }, [tasks]);
@@ -133,6 +141,7 @@ function App() {
 
     return () => clearTimeout(timer);
   }, [toast]);
+
   const stats = useMemo(() => {
     const completed = tasks.filter((task) => task.completed).length;
 
@@ -271,70 +280,83 @@ function App() {
     setTasks((current) => current.filter((item) => item.id !== id));
     setToast("Task deleted.");
   };
-const startEdit = (task) => {
-  setEditingId(task.id);
 
-  setEditForm({
-    title: task.title || "",
-    subject: task.subject || "",
-    deadline: task.deadline || "",
-    priority: task.priority || "Medium",
-    description: task.description || "",
-  });
-};
+  const startEdit = (task) => {
+    setEditingId(task.id);
 
-const cancelEdit = () => {
-  setEditingId(null);
-  setEditForm(EMPTY_FORM);
-};
+    setEditForm({
+      title: task.title || "",
+      subject: task.subject || "",
+      deadline: task.deadline || "",
+      priority: task.priority || "Medium",
+      description: task.description || "",
+    });
+  };
 
-const saveEdit = (event) => {
-  event.preventDefault();
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm(EMPTY_FORM);
+  };
 
-  if (!editForm.title.trim()) {
-    setToast("Task title is required.");
-    return;
-  }
+  const saveEdit = (event) => {
+    event.preventDefault();
 
-  if (!editForm.subject) {
-    setToast("Please select a subject.");
-    return;
-  }
+    if (!editForm.title.trim()) {
+      setToast("Task title is required.");
+      return;
+    }
 
-  if (!editForm.deadline) {
-    setToast("Please select a deadline.");
-    return;
-  }
+    if (!editForm.subject) {
+      setToast("Please select a subject.");
+      return;
+    }
 
-  setTasks((current) =>
-    current.map((task) =>
-      task.id === editingId
-        ? {
-            ...task,
-            title: editForm.title.trim(),
-            subject: editForm.subject,
-            deadline: editForm.deadline,
-            priority: editForm.priority,
-            description: editForm.description.trim(),
-          }
-        : task
-    )
-  );
+    if (!editForm.deadline) {
+      setToast("Please select a deadline.");
+      return;
+    }
 
-  setEditingId(null);
-  setEditForm(EMPTY_FORM);
-  setToast("Task updated successfully.");
-};
+    setTasks((current) =>
+      current.map((task) =>
+        task.id === editingId
+          ? {
+              ...task,
+              title: editForm.title.trim(),
+              subject: editForm.subject,
+              deadline: editForm.deadline,
+              priority: editForm.priority,
+              description: editForm.description.trim(),
+            }
+          : task
+      )
+    );
+
+    setEditingId(null);
+    setEditForm(EMPTY_FORM);
+    setToast("Task updated successfully.");
+  };
+
   const resetFilters = () => {
     setSearch("");
     setStatus("All");
     setPriority("All");
   };
 
+  if (loading) {
+    return <div className="app-loading">Loading StudyFlow...</div>;
+  }
+
+  if (!user) {
+    return showSignup ? (
+      <Signup onShowLogin={() => setShowSignup(false)} />
+    ) : (
+      <Login onShowSignup={() => setShowSignup(true)} />
+    );
+  }
+
   return (
     <div className="studyflow-bg">
       <main className="app-shell">
-
         <header className="hero">
           <div>
             <div className="eyebrow">
@@ -374,7 +396,6 @@ const saveEdit = (event) => {
         />
 
         <section className="stats-grid">
-
           <div className="stat-card">
             <div className="stat-icon">
               <ListChecks size={18} />
@@ -418,11 +439,9 @@ const saveEdit = (event) => {
               <strong>{stats.highPriority}</strong>
             </div>
           </div>
-
         </section>
 
         <section className="panel form-panel">
-
           <div className="panel-heading">
             <div>
               <span className="section-kicker">PLAN YOUR WORK</span>
@@ -435,7 +454,6 @@ const saveEdit = (event) => {
             className="task-form"
             noValidate
           >
-
             <div className="field full">
               <label htmlFor="title">Task title</label>
 
@@ -542,12 +560,10 @@ const saveEdit = (event) => {
                 Add Task
               </button>
             </div>
-
           </form>
         </section>
 
         <section className="panel filters-panel">
-
           <div className="search-wrap">
             <Search size={18} />
 
@@ -596,11 +612,9 @@ const saveEdit = (event) => {
               Reset
             </button>
           )}
-
         </section>
 
         <section className="tasks-section">
-
           <div className="tasks-heading">
             <div>
               <span className="section-kicker">
@@ -617,7 +631,6 @@ const saveEdit = (event) => {
 
           {visibleTasks.length === 0 ? (
             <div className="empty-state">
-
               <div className="empty-icon">
                 <ListChecks size={24} />
               </div>
@@ -627,11 +640,9 @@ const saveEdit = (event) => {
               <p>
                 Try changing your filters or add a new task above.
               </p>
-
             </div>
           ) : (
             <div className="task-list">
-
               {visibleTasks.map((task) => {
                 const overdue = isOverdue(task);
                 const overdueDays = daysOverdue(task);
@@ -643,9 +654,7 @@ const saveEdit = (event) => {
                       task.completed ? "is-completed" : ""
                     }`}
                   >
-
                     <div className="task-main">
-
                       <div className="task-check">
                         <button
                           type="button"
@@ -668,9 +677,7 @@ const saveEdit = (event) => {
                       </div>
 
                       <div className="task-content">
-
                         <div className="task-title-row">
-
                           <h3>{task.title}</h3>
 
                           <span
@@ -680,11 +687,9 @@ const saveEdit = (event) => {
                           >
                             {task.priority}
                           </span>
-
                         </div>
 
                         <div className="task-meta">
-
                           <span>
                             {task.subject || "Other"}
                           </span>
@@ -714,7 +719,6 @@ const saveEdit = (event) => {
                               </span>
                             </>
                           )}
-
                         </div>
 
                         {task.description && (
@@ -732,11 +736,10 @@ const saveEdit = (event) => {
                             overdue
                           </div>
                         )}
-
                       </div>
                     </div>
-                    <div className="task-actions">
 
+                    <div className="task-actions">
                       <button
                         type="button"
                         className="small-button edit-button"
@@ -780,16 +783,12 @@ const saveEdit = (event) => {
                         <Trash2 size={15} />
                         Delete
                       </button>
-
                     </div>
-
                   </article>
                 );
               })}
-
             </div>
           )}
-
         </section>
 
         <footer className="footer">
@@ -797,7 +796,6 @@ const saveEdit = (event) => {
           <span>Made for students</span>
           <span>Data saved locally in your browser</span>
         </footer>
-
       </main>
 
       {editingId && (
@@ -819,8 +817,13 @@ const saveEdit = (event) => {
           >
             <div className="edit-dialog-heading">
               <div>
-                <span className="section-kicker">UPDATE YOUR WORK</span>
-                <h2 id="edit-dialog-title">Edit task</h2>
+                <span className="section-kicker">
+                  UPDATE YOUR WORK
+                </span>
+
+                <h2 id="edit-dialog-title">
+                  Edit task
+                </h2>
               </div>
 
               <button
@@ -835,7 +838,10 @@ const saveEdit = (event) => {
 
             <div className="edit-dialog-form">
               <div className="field full">
-                <label htmlFor="edit-title">Task title</label>
+                <label htmlFor="edit-title">
+                  Task title
+                </label>
+
                 <input
                   id="edit-title"
                   value={editForm.title}
@@ -850,7 +856,10 @@ const saveEdit = (event) => {
               </div>
 
               <div className="field">
-                <label htmlFor="edit-subject">Subject</label>
+                <label htmlFor="edit-subject">
+                  Subject
+                </label>
+
                 <select
                   id="edit-subject"
                   value={editForm.subject}
@@ -861,7 +870,10 @@ const saveEdit = (event) => {
                     }))
                   }
                 >
-                  <option value="">Select a subject...</option>
+                  <option value="">
+                    Select a subject...
+                  </option>
+
                   {SUBJECTS.map((subject) => (
                     <option key={subject} value={subject}>
                       {subject}
@@ -871,7 +883,10 @@ const saveEdit = (event) => {
               </div>
 
               <div className="field">
-                <label htmlFor="edit-deadline">Deadline</label>
+                <label htmlFor="edit-deadline">
+                  Deadline
+                </label>
+
                 <input
                   id="edit-deadline"
                   type="date"
@@ -886,7 +901,10 @@ const saveEdit = (event) => {
               </div>
 
               <div className="field">
-                <label htmlFor="edit-priority">Priority</label>
+                <label htmlFor="edit-priority">
+                  Priority
+                </label>
+
                 <select
                   id="edit-priority"
                   value={editForm.priority}
@@ -907,6 +925,7 @@ const saveEdit = (event) => {
                 <label htmlFor="edit-description">
                   Description <span>(optional)</span>
                 </label>
+
                 <input
                   id="edit-description"
                   value={editForm.description}
@@ -928,7 +947,11 @@ const saveEdit = (event) => {
               >
                 Cancel
               </button>
-              <button type="submit" className="primary-button">
+
+              <button
+                type="submit"
+                className="primary-button"
+              >
                 <Check size={17} />
                 Save changes
               </button>
@@ -950,7 +973,6 @@ const saveEdit = (event) => {
           {toast}
         </div>
       )}
-
     </div>
   );
 }
