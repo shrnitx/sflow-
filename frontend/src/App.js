@@ -807,8 +807,10 @@ function App() {
         <section className="panel form-panel">
           <div className="panel-heading">
             <div>
-              <span className="section-kicker">PLAN YOUR WORK</span>
-              <h2>Add a new task</h2>
+              <span className="section-kicker">
+                {activeSection === "exams" ? "PLAN YOUR EXAMS" : "PLAN YOUR WORK"}
+              </span>
+              <h2>{activeSection === "exams" ? "Add an exam" : "Add a new task"}</h2>
             </div>
           </div>
 
@@ -818,7 +820,7 @@ function App() {
             noValidate
           >
             <div className="field full">
-              <label htmlFor="title">Task title</label>
+              <label htmlFor="title">{activeSection === "exams" ? "Exam name" : "Task title"}</label>
 
               <input
                 id="title"
@@ -826,7 +828,7 @@ function App() {
                 onChange={(event) =>
                   setField("title", event.target.value)
                 }
-                placeholder="e.g. Physics Assignment"
+                placeholder={activeSection === "exams" ? "e.g. Biology midterm" : "e.g. Physics Assignment"}
               />
 
               {errors.title && (
@@ -865,7 +867,7 @@ function App() {
             </div>
 
             <div className="field">
-              <label htmlFor="deadline">Deadline</label>
+              <label htmlFor="deadline">{activeSection === "exams" ? "Exam date" : "Deadline"}</label>
 
               <input
                 id="deadline"
@@ -910,7 +912,7 @@ function App() {
                 onChange={(event) =>
                   setField("description", event.target.value)
                 }
-                placeholder="e.g. Complete questions 1–10"
+                placeholder={activeSection === "exams" ? "e.g. Syllabus, room, or exam instructions" : "e.g. Complete questions 1–10"}
               />
             </div>
 
@@ -920,7 +922,7 @@ function App() {
                 className="primary-button"
               >
                 <Plus size={18} />
-                Add Task
+                {activeSection === "exams" ? "Add Exam" : "Add Task"}
               </button>
             </div>
           </form>
@@ -981,10 +983,10 @@ function App() {
           <div className="tasks-heading">
             <div>
               <span className="section-kicker">
-                YOUR WORK
+                {activeSection === "exams" ? "EXAM SCHEDULE" : "YOUR WORK"}
               </span>
 
-              <h2>Tasks</h2>
+              <h2>{activeSection === "exams" ? "Exams" : "Tasks"}</h2>
             </div>
 
             <span className="task-count">
@@ -998,10 +1000,12 @@ function App() {
                 <ListChecks size={24} />
               </div>
 
-              <h3>No tasks found</h3>
+              <h3>{activeSection === "exams" ? "No exams found" : "No tasks found"}</h3>
 
               <p>
-                Try changing your filters or add a new task above.
+                {activeSection === "exams"
+                  ? "Add an exam above with its subject and date to see it in your exam list and home alerts."
+                  : "Try changing your filters or add a new task above."}
               </p>
             </div>
           ) : (
@@ -1153,6 +1157,8 @@ function App() {
             </div>
           )}
         </section>
+          </>
+        )}
 
         <footer className="footer">
           <span>StudyFlow</span>
