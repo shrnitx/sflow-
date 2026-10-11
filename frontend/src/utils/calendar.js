@@ -230,7 +230,7 @@ export function parseStudyFlowCalendar(text) {
       };
       const notes = description
         .split(/\r?\n/)
-        .filter((line) => !/^(?:Course|Instructor|Online):\\s*/i.test(line))
+        .filter((line) => !/^(?:Course|Instructor|Online):\s*/i.test(line))
         .join("\n")
         .trim();
 
