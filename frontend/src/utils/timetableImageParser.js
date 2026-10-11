@@ -18,12 +18,14 @@ function loadTesseract() {
           resolve(window.Tesseract);
         } else {
           tesseractPromise = null;
+          script.remove();
           reject(new Error("The image reader did not load correctly. Refresh and try again."));
         }
       };
 
       const onError = () => {
         tesseractPromise = null;
+        script.remove();
         reject(new Error("Could not load the image-reading engine. Check your internet connection and try again."));
       };
 
