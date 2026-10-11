@@ -91,7 +91,7 @@ function daysOverdue(task) {
 }
 
 function App() {
-  const { user, loading } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const [showSignup, setShowSignup] = useState(false);
 
   const [tasks, setTasks] = useState(() => {
@@ -342,6 +342,15 @@ function App() {
     setPriority("All");
   };
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      setShowSignup(false);
+    } catch {
+      setToast("Could not sign out. Please try again.");
+    }
+  };
+
   if (loading) {
     return <div className="app-loading">Loading StudyFlow...</div>;
   }
@@ -371,16 +380,26 @@ function App() {
             </p>
           </div>
 
-          <div className="today-chip">
-            <CalendarDays size={17} />
-
-            <span>
-              {new Date().toLocaleDateString(undefined, {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })}
+          <div className="hero-actions">
+            <span className="account-email" title={user.email || "Signed in"}>
+              {user.email || "Signed in"}
             </span>
+
+            <div className="today-chip">
+              <CalendarDays size={17} />
+
+              <span>
+                {new Date().toLocaleDateString(undefined, {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
+            </div>
+
+            <button type="button" className="ghost-button" onClick={handleSignOut}>
+              Sign out
+            </button>
           </div>
         </header>
 
@@ -898,12 +917,12 @@ function App() {
                     }))
                   }
                 />
+
+                <span className="field-error">{errors.deadline}</span>
               </div>
 
               <div className="field">
-                <label htmlFor="edit-priority">
-                  Priority
-                </label>
+                <label htmlFor="edit-priority">Priority</label>
 
                 <select
                   id="edit-priority"
@@ -923,7 +942,7 @@ function App() {
 
               <div className="field full">
                 <label htmlFor="edit-description">
-                  Description <span>(optional)</span>
+                  Description
                 </label>
 
                 <input
@@ -952,25 +971,10 @@ function App() {
                 type="submit"
                 className="primary-button"
               >
-                <Check size={17} />
                 Save changes
               </button>
             </div>
           </form>
-        </div>
-      )}
-
-      {selectedClass && (
-        <ClassDetails
-          classItem={selectedClass}
-          tasks={tasks}
-          onClose={() => setSelectedClass(null)}
-        />
-      )}
-
-      {toast && (
-        <div className="toast">
-          {toast}
         </div>
       )}
     </div>
