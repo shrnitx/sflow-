@@ -1384,3 +1384,19 @@ select {
     flex: 1 1 100%;
   }
 }
+
+
+.timetable-import-default-day {
+  margin: 14px 0;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 250, 237, 0.7);
+}
+
+.timetable-import-default-day p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+}
