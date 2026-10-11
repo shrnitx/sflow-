@@ -33,6 +33,30 @@ describe("StudyFlow calendar import/export", () => {
     });
   });
 
+  test("round-trips task titles without adding export labels to the title", () => {
+    const content = exportStudyFlowCalendar({
+      timetable: [],
+      tasks: [{
+        id: "task-1",
+        type: "task",
+        title: "Finish lab report",
+        subject: "Biology",
+        deadline: "2026-11-20",
+        priority: "High",
+        completed: false,
+      }],
+    });
+
+    const parsed = parseStudyFlowCalendar(content);
+
+    expect(parsed.tasks).toHaveLength(1);
+    expect(parsed.tasks[0]).toMatchObject({
+      type: "task",
+      title: "Finish lab report",
+      deadline: "2026-11-20",
+    });
+  });
+
   test("imports all-day exam events as dated exam records", () => {
     const content = [
       "BEGIN:VCALENDAR",
