@@ -118,6 +118,23 @@ function ReminderSettings({ userId, timetable, tasks, onToast, visible = true })
           console.warn("Could not show an exam notification:", error);
         }
       });
+
+      tasks.filter((item) => !isExam(item) && !item.completed && item.deadline).forEach((item) => {
+        const delta = daysUntil(item.deadline);
+        if (delta === null || delta < 0 || delta > Number(settings.taskLeadDays)) return;
+        const key = "task:" + dateKey + ":" + item.id + ":" + settings.taskLeadDays;
+        if (localStorage.getItem("studyflow.notice." + userId + "." + key)) return;
+        try {
+          new Notification(delta === 0 ? "Task due today: " + item.title : "Upcoming task: " + item.title, {
+            body: delta === 0 ? "This task is due today." : "Deadline: " + item.deadline,
+            tag: key,
+          });
+          localStorage.setItem("studyflow.notice." + userId + "." + key, "1");
+          setLastNotice("Task reminder sent for " + item.title + ".");
+        } catch (error) {
+          console.warn("Could not show a task notification:", error);
+        }
+      });
     };
 
     checkReminders();
@@ -201,6 +218,19 @@ function ReminderSettings({ userId, timetable, tasks, onToast, visible = true })
             onChange={(event) => updateSettings({ examLeadDays: Number(event.target.value) })}
           >
             <option value={0}>On exam day</option>
+            <option value={1}>1 day before</option>
+            <option value={3}>3 days before</option>
+            <option value={7}>1 week before</option>
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="task-reminder-lead">Task deadline reminder</label>
+          <select
+            id="task-reminder-lead"
+            value={settings.taskLeadDays}
+            onChange={(event) => updateSettings({ taskLeadDays: Number(event.target.value) })}
+          >
+            <option value={0}>On due date</option>
             <option value={1}>1 day before</option>
             <option value={3}>3 days before</option>
             <option value={7}>1 week before</option>
