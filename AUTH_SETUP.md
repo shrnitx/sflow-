@@ -31,6 +31,12 @@ The React app uses these build-time variables:
 
 A publishable key is meant for frontend use. Never put a Supabase **secret** or **service_role** key in React code or any `REACT_APP_*` variable. Set production values in the hosting provider's environment settings. For local development, create `frontend/.env` using `frontend/.env.example` as a template.
 
+## Import timetable from screenshot
+
+The weekly timetable has a **Choose screenshot** control. It accepts PNG, JPG/JPEG, and WEBP images up to 12 MB. OCR runs in the user's browser using Tesseract.js; the image itself is not uploaded to StudyFlow's database. The browser downloads the OCR JavaScript and English language model from public CDNs on first use, so an internet connection is required.
+
+Detected classes appear in an editable review list before anything changes. Users can add entries to the current timetable (exact duplicates are skipped) or choose to replace the existing timetable after a confirmation. Screenshot layouts vary, so the parsed day/subject/time values should be checked before import. For best results, use a sharp, full screenshot with weekday headings and clear time labels.
+
 ## Cloud data storage
 
 Tasks and timetable entries now use account-scoped Supabase tables. Before deployment, open the Supabase SQL Editor, paste and run `supabase/migrations/20261011000100_studyflow_user_data.sql`, and rebuild the frontend with the correct `REACT_APP_SUPABASE_URL` and `REACT_APP_SUPABASE_PUBLISHABLE_KEY` values configured.
