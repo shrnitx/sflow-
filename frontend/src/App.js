@@ -9,6 +9,8 @@ import {
   House,
   CalendarRange,
   GraduationCap,
+  Timer,
+  Settings,
   Pencil,
   Plus,
   RotateCcw,
@@ -24,6 +26,8 @@ import {
   loadUserTimetable,
   saveUserTasks,
   saveUserTimetable,
+  loadUserFocusSessions,
+  saveUserFocusSessions,
   wasLegacyMigrationReviewed,
   markLegacyMigrationReviewed,
   makeId,
@@ -37,6 +41,11 @@ import {
 import TodayClasses from "./components/TodayClasses";
 import ClassDetails from "./components/ClassDetails";
 import Timetable from "./components/Timetable";
+import ReminderSettings from "./components/ReminderSettings";
+import QuickAdd from "./components/QuickAdd";
+import ExamPrepPlanner from "./components/ExamPrepPlanner";
+import FocusMode from "./components/FocusMode";
+import { parseQuickEntry } from "./utils/quickAdd";
 
 import Login from "./components/auth/login";
 import Signup from "./components/auth/signup";
@@ -133,6 +142,7 @@ function App() {
   const { user, loading, signOut } = useAuth();
   const [showSignup, setShowSignup] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
+  const [focusSessions, setFocusSessions] = useState([]);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataLoadedFor, setDataLoadedFor] = useState(null);
   const [cloudReadyFor, setCloudReadyFor] = useState(null);
@@ -193,17 +203,20 @@ function App() {
         const results = await Promise.all([
           loadUserCollection("tasks", user.id),
           loadUserCollection("timetable", user.id),
+          loadUserCollection("focusSessions", user.id),
         ]);
 
         if (cancelled) return;
 
         let nextTasks = results[0];
         let nextTimetable = results[1];
+        let nextFocusSessions = results[2];
 
         // A per-user cache may contain writes made while Supabase was unreachable.
         // Restore it only when the cloud collection is empty; cloud data wins otherwise.
         const cachedTasks = loadUserTasks(user.id);
         const cachedTimetable = loadUserTimetable(user.id);
+        const cachedFocusSessions = loadUserFocusSessions(user.id);
 
         if (nextTasks.length === 0 && cachedTasks.length > 0) {
           await syncUserCollection("tasks", user.id, cachedTasks);
@@ -213,6 +226,11 @@ function App() {
         if (nextTimetable.length === 0 && cachedTimetable.length > 0) {
           await syncUserCollection("timetable", user.id, cachedTimetable);
           nextTimetable = cachedTimetable;
+        }
+
+        if (nextFocusSessions.length === 0 && cachedFocusSessions.length > 0) {
+          await syncUserCollection("focusSessions", user.id, cachedFocusSessions);
+          nextFocusSessions = cachedFocusSessions;
         }
 
         // Older versions used shared browser keys. Never import them silently:
@@ -260,8 +278,10 @@ function App() {
 
         saveUserTasks(user.id, nextTasks);
         saveUserTimetable(user.id, nextTimetable);
+        saveUserFocusSessions(user.id, nextFocusSessions);
         setTasks(nextTasks);
         setTimetable(nextTimetable);
+        setFocusSessions(nextFocusSessions);
         setDataLoadedFor(user.id);
         setCloudReadyFor(user.id);
         setDataSyncError("");
@@ -271,6 +291,7 @@ function App() {
         console.error("Failed to load StudyFlow cloud data:", error);
         setTasks(loadUserTasks(user.id));
         setTimetable(loadUserTimetable(user.id));
+        setFocusSessions(loadUserFocusSessions(user.id));
         setDataLoadedFor(user.id);
         setDataSyncError(
           "Cloud data could not be loaded. Your account-specific browser cache is shown, but changes may not sync until the Supabase tables and permissions are configured."
