@@ -227,12 +227,30 @@ async function main() {
     await page.getByRole("button", { name: "Reset timer" }).click();
     process.stdout.write("PASS: focus timer start, pause, resume and reset\n");
 
+    await page.getByRole("button", { name: "Play music", exact: true }).click();
+    const youtubeFrame = page.locator(".study-music-player-frame.youtube iframe");
+    await youtubeFrame.waitFor();
+    assert.ok((await youtubeFrame.getAttribute("src")).includes("EWrX250Zhko"));
+    await page.getByRole("button", { name: "Spotify playlist", exact: true }).click();
+    await page.locator(".study-music-player-frame").waitFor({ state: "detached" });
+    await page.getByRole("button", { name: "Load playlist", exact: true }).click();
+    const spotifyFrame = page.locator(".study-music-player-frame.spotify iframe");
+    await spotifyFrame.waitFor();
+    assert.ok((await spotifyFrame.getAttribute("src")).includes("open.spotify.com/embed/playlist/"));
+    await page.getByRole("button", { name: "Stop music", exact: true }).click();
+    await page.locator(".study-music-player-frame").waitFor({ state: "detached" });
+    process.stdout.write("PASS: YouTube/Spotify player switching and stop behavior\n");
+
+    await page.getByRole("button", { name: "Study Coach", exact: true }).click();
+    await page.getByRole("heading", { name: "One thing at a time.", exact: true }).waitFor();
+    process.stdout.write("PASS: Study Coach workspace opens\n");
+
     await page.getByRole("button", { name: "Settings", exact: true }).click();
     await page.getByLabel("Enable quiet hours").check();
     await page.locator("#quiet-hours-start").fill("21:00");
     await page.locator("#quiet-hours-end").fill("07:00");
     await page.getByRole("button", { name: "Enable reminders" }).click();
-    await page.getByText("Reminders enabled while StudyFlow is open.").waitFor();
+    await page.getByText("Reminders enabled while StudyFlow is open.", { exact: true }).waitFor();
     await page.getByRole("button", { name: /Install \/ add to home screen/ }).waitFor();
     await page.getByText("Internet connection available", { exact: true }).waitFor();
     process.stdout.write("PASS: reminder preferences, quiet hours and offline/install settings UI\n");
