@@ -21,6 +21,38 @@ function safeRead(key, fallback) {
   }
 }
 
+function isExamTask(item) {
+  const type = String(item?.type || item?.category || "").toLowerCase();
+  if (type === "exam" || type === "examination") return true;
+  if (type === "task" || type === "assignment") return false;
+  return /\b(exam|examination|midterm|finals?|quiz|viva|practical exam)\b/i.test(
+    String(item?.title || "") + " " + String(item?.description || "")
+  );
+}
+
+function quietHoursActive(userId, now = new Date()) {
+  const settings = safeRead("studyflow.settings.user." + encodeURIComponent(userId), {});
+  if (!settings.quietHoursEnabled) return false;
+
+  const minuteValue = (value) => {
+    const match = String(value || "").match(/^(\d{2}):(\d{2})$/);
+    if (!match) return null;
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (hours > 23 || minutes > 59) return null;
+    return hours * 60 + minutes;
+  };
+
+  const start = minuteValue(settings.quietHoursStart);
+  const end = minuteValue(settings.quietHoursEnd);
+  if (start === null || end === null || start === end) return false;
+
+  const current = now.getHours() * 60 + now.getMinutes();
+  return start < end
+    ? current >= start && current < end
+    : current >= start || current < end;
+}
+
 function clockLabel(value) {
   const [hours, minutes] = String(value || "00:00").split(":").map(Number);
   const date = new Date();
@@ -41,7 +73,16 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
   const userId = user.id;
   const dataKey = WORKSPACE_PREFIX + ":" + userId;
   const [tab, setTab] = useState("focus");
-  const [exams, setExams] = useState(() => safeRead(dataKey + ":exams", []));
+  // Exams are canonical StudyFlow tasks. The separate workspace row is retained
+  // only as a migration/compatibility mirror for exams created by older versions.
+  const exams = useMemo(
+    () => (Array.isArray(tasks) ? tasks : [])
+      .filter(isExamTask)
+      .map((task) => ({ ...task, date: task.deadline || task.date || "" }))
+      .filter((exam) => exam.date)
+      .sort((a, b) => String(a.date).localeCompare(String(b.date))),
+    [tasks]
+  );
   const [syllabus, setSyllabus] = useState(() => safeRead(dataKey + ":syllabus", []));
   const [reminderPrefs, setReminderPrefs] = useState(() => safeRead(dataKey + ":reminders", { notificationsEnabled: false, dailyReminderTime: "09:00" }));
   const [messages, setMessages] = useState(() => safeRead(dataKey + ":assistant", []));
@@ -59,6 +100,48 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
   const [permission, setPermission] = useState(typeof window !== "undefined" && "Notification" in window ? window.Notification.permission : "unsupported");
   const guard = useRef(false);
   const lastTick = useRef(0);
+
+  const importLegacyExams = useCallback((records) => {
+    if (!Array.isArray(records) || !records.length) return;
+
+    setTasks((current) => {
+      const existingIds = new Set(current.map((task) => task.id));
+      const existingKeys = new Set(
+        current.filter(isExamTask).map((task) =>
+          [String(task.title || "").trim().toLowerCase(), String(task.deadline || task.date || "")].join("|")
+        )
+      );
+      const imported = [];
+
+      records.forEach((exam) => {
+        const title = String(exam?.title || "").trim();
+        const deadline = String(exam?.date || exam?.deadline || "").trim();
+        if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(deadline)) return;
+        const key = [title.toLowerCase(), deadline].join("|");
+        if (existingKeys.has(key)) return;
+
+        let id = typeof exam.id === "string" && exam.id.trim() ? exam.id : makeId();
+        if (existingIds.has(id)) id = makeId();
+        existingIds.add(id);
+        existingKeys.add(key);
+
+        imported.push({
+          id,
+          type: "exam",
+          title,
+          subject: String(exam.subject || "Other").trim() || "Other",
+          deadline,
+          priority: exam.priority || "Medium",
+          description: String(exam.description || ""),
+          completed: Boolean(exam.completed),
+          createdAt: exam.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+      });
+
+      return imported.length ? [...imported, ...current] : current;
+    });
+  }, [setTasks]);
 
   const pendingTasks = useMemo(() => sortPending(tasks), [tasks]);
   const selectedTask = useMemo(() => pendingTasks.find((task) => task.id === focusTaskId) || pendingTasks[0] || null, [pendingTasks, focusTaskId]);
@@ -83,14 +166,14 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
         if (error) throw error;
         if (!active) return;
         const remote = Object.fromEntries((data || []).map((row) => [row.record_id, row.data || {}]));
-        setExams(Array.isArray(remote.exams?.items) ? remote.exams.items : fallback.exams);
+        importLegacyExams(Array.isArray(remote.exams?.items) ? remote.exams.items : fallback.exams);
         setSyllabus(Array.isArray(remote.syllabus?.items) ? remote.syllabus.items : fallback.syllabus);
         setReminderPrefs(remote.reminders?.prefs && typeof remote.reminders.prefs === "object" ? remote.reminders.prefs : fallback.reminders);
         setCloudStatus("synced");
       } catch (error) {
         console.error("StudyFlow workspace cloud read failed:", error);
         if (!active) return;
-        setExams(fallback.exams);
+        importLegacyExams(fallback.exams);
         setSyllabus(fallback.syllabus);
         setReminderPrefs(fallback.reminders);
         setCloudStatus("error");
@@ -100,7 +183,7 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
     };
     load();
     return () => { active = false; };
-  }, [userId, dataKey]);
+  }, [userId, dataKey, importLegacyExams]);
 
   useEffect(() => {
     if (dataReadyUser !== userId) return undefined;
@@ -222,14 +305,24 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
       setToast("Add an exam name and date.");
       return;
     }
-    setExams((current) => [...current, {
-      id: makeId(), title: examDraft.title.trim(), subject: examDraft.subject.trim() || "General",
-      date: examDraft.date, createdAt: new Date().toISOString(),
-    }].sort((a, b) => a.date.localeCompare(b.date)));
+    const now = new Date().toISOString();
+    const examTask = {
+      id: makeId(),
+      type: "exam",
+      title: examDraft.title.trim(),
+      subject: examDraft.subject.trim() || "Other",
+      deadline: examDraft.date,
+      priority: "Medium",
+      description: "",
+      completed: false,
+      createdAt: now,
+      updatedAt: now,
+    };
+    setTasks((current) => [examTask, ...current]);
     setExamDraft({ title: "", subject: "", date: "" });
-    setToast("Exam saved.");
+    setToast("Exam saved to your Exams list and dashboard alerts.");
   };
-  const removeExam = (id) => setExams((current) => current.filter((exam) => exam.id !== id));
+  const removeExam = (id) => setTasks((current) => current.filter((task) => task.id !== id));
 
   const addTopic = (event) => {
     event.preventDefault();
@@ -292,23 +385,37 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
     const check = () => {
       const today = dateKey();
       const tomorrow = dateKey(new Date(Date.now() + 86400000));
-      const dueTasks = sortPending(tasks).filter((task) => task.deadline === today || task.deadline === tomorrow);
-      const soonExams = exams.filter((exam) => exam.date && exam.date >= today && exam.date <= dateKey(new Date(Date.now() + 3 * 86400000)));
+      const now = new Date();
+      // Task, class, and exam notifications are handled centrally in Settings.
+      // This workspace adds only the optional daily planning reminder, avoiding
+      // duplicate system notifications when both panels are enabled.
+      if (quietHoursActive(userId, now)) return;
+
       const key = "studyflow.notified.v1:" + userId;
       const sent = new Set(safeRead(key, []));
-      const items = [
-        ...dueTasks.map((task) => ({ key: "task-" + task.id + "-" + today, title: task.deadline === today ? "Task due today" : "Task due tomorrow", body: task.title })),
-        ...soonExams.map((exam) => ({ key: "exam-" + exam.id + "-" + today, title: "Upcoming exam", body: exam.title + " · " + dateLabel(exam.date) })),
-      ];
+      const items = [];
       const [hh, mm] = String(reminderPrefs.dailyReminderTime || "09:00").split(":").map(Number);
-      const now = new Date();
-      if (now.getHours() * 60 + now.getMinutes() >= hh * 60 + mm) {
-        items.push({ key: "daily-plan-" + today, title: "Plan your day", body: pendingTasks.length ? "You have " + pendingTasks.length + " pending task(s). Choose the first one in StudyFlow." : "Review your syllabus or add tomorrow's first task." });
+      if (
+        Number.isInteger(hh) && Number.isInteger(mm) &&
+        hh >= 0 && hh <= 23 && mm >= 0 && mm <= 59 &&
+        now.getHours() * 60 + now.getMinutes() >= hh * 60 + mm
+      ) {
+        items.push({
+          key: "daily-plan-" + today,
+          title: "Plan your day",
+          body: pendingTasks.length
+            ? "You have " + pendingTasks.length + " pending task(s). Choose the first one in StudyFlow."
+            : "Review your syllabus or add tomorrow's first task.",
+        });
       }
       items.forEach((item) => {
         if (sent.has(item.key)) return;
-        new window.Notification(item.title, { body: item.body, tag: item.key });
-        sent.add(item.key);
+        try {
+          new window.Notification(item.title, { body: item.body, tag: item.key });
+          sent.add(item.key);
+        } catch (error) {
+          console.warn("StudyFlow daily reminder could not be displayed:", error);
+        }
       });
       window.localStorage.setItem(key, JSON.stringify(Array.from(sent).slice(-150)));
     };
@@ -430,7 +537,7 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
       </div>}
 
       {tab === "reminders" && <div className="sfw-body">
-        <div className="sfw-intro"><div><span className="sfw-overline">NO SURPRISE DEADLINES</span><h3>Keep important things visible.</h3><p>Browser reminders run while StudyFlow is open. The in-app list remains available if notifications are blocked.</p></div><button type="button" className={reminderPrefs.notificationsEnabled && permission === "granted" ? "ghost-button" : "primary-button"} onClick={enableNotifications}><Bell size={15} />{reminderPrefs.notificationsEnabled && permission === "granted" ? "Notifications enabled" : "Enable notifications"}</button></div>
+        <div className="sfw-intro"><div><span className="sfw-overline">NO SURPRISE DEADLINES</span><h3>Keep important things visible.</h3><p>The in-app list covers task deadlines and exams. Settings controls class/task/exam notifications; this page adds an optional daily planning reminder.</p></div><button type="button" className={reminderPrefs.notificationsEnabled && permission === "granted" ? "ghost-button" : "primary-button"} onClick={enableNotifications}><Bell size={15} />{reminderPrefs.notificationsEnabled && permission === "granted" ? "Notifications enabled" : "Enable notifications"}</button></div>
         <div className="sfw-reminder-settings"><label htmlFor="sfw-reminder-time">Daily planning reminder time<input id="sfw-reminder-time" type="time" value={reminderPrefs.dailyReminderTime || "09:00"} onChange={(event) => setReminderPrefs((current) => ({ ...current, dailyReminderTime: event.target.value }))} /></label><p>When enabled, StudyFlow sends one planning reminder per day at or after this time while the app is open, plus alerts for tasks due today/tomorrow and exams within three days.</p></div>
         <div className="sfw-reminder-metrics"><div><strong>{reminders.length}</strong><span>upcoming / overdue</span></div><div><strong>{reminderPrefs.notificationsEnabled && permission === "granted" ? "On" : "Off"}</strong><span>browser notifications</span></div><div><strong>{permission === "denied" ? "Blocked" : permission === "unsupported" ? "Unsupported" : "Available"}</strong><span>permission</span></div></div>
         {permission === "denied" && <p className="sfw-warning">Notifications are blocked by browser settings. Allow them in the address bar/site settings to enable system reminders.</p>}
