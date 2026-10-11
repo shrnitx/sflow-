@@ -144,18 +144,10 @@ function mergeOfflineCollection(cloudRecords, localRecords, baselineRecords) {
     const localChanged =
       hasLocal !== hadBaseline ||
       (hasLocal && hadBaseline && !sameRecord(localRecord, baselineRecord));
-    const cloudChanged =
-      hasCloud !== hadBaseline ||
-      (hasCloud && hadBaseline && !sameRecord(cloudRecord, baselineRecord));
-
-    // Preserve local changes when a local and remote edit conflict. Otherwise,
-    // keep the remote version, including remote deletions of untouched records.
-    if (localChanged && (!cloudChanged || hasLocal)) {
+    // Preserve any local edit/deletion that differs from the last confirmed
+    // baseline. For untouched rows, the remote side wins, including deletions.
+    if (localChanged) {
       if (hasLocal) merged.set(id, localRecord);
-      return;
-    }
-    if (cloudChanged) {
-      if (hasCloud) merged.set(id, cloudRecord);
       return;
     }
     if (hasCloud) merged.set(id, cloudRecord);
