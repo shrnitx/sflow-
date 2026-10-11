@@ -11,7 +11,6 @@ import "./StudyFlowWorkspace.css";
 
 const USER_DATA_KEYS = ["exams", "syllabus", "reminders"];
 const WORKSPACE_PREFIX = "studyflow.workspace.v1";
-const SESSION_PREFIX = "studyflow.focus-sessions.v1";
 
 function safeRead(key, fallback) {
   try {
@@ -38,18 +37,15 @@ function Metric({ icon: Icon, label, value }) {
   return <div className="sfw-metric"><span><Icon size={16} /></span><div><small>{label}</small><strong>{value}</strong></div></div>;
 }
 
-export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, setToast }) {
+export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, setToast, sessions, setSessions }) {
   const userId = user.id;
   const dataKey = WORKSPACE_PREFIX + ":" + userId;
-  const sessionsKey = SESSION_PREFIX + ":" + userId;
   const [tab, setTab] = useState("focus");
   const [exams, setExams] = useState(() => safeRead(dataKey + ":exams", []));
   const [syllabus, setSyllabus] = useState(() => safeRead(dataKey + ":syllabus", []));
   const [reminderPrefs, setReminderPrefs] = useState(() => safeRead(dataKey + ":reminders", { notificationsEnabled: false, dailyReminderTime: "09:00" }));
-  const [sessions, setSessions] = useState(() => safeRead(sessionsKey, []));
   const [messages, setMessages] = useState(() => safeRead(dataKey + ":assistant", []));
   const [dataReadyUser, setDataReadyUser] = useState(null);
-  const [sessionsReadyUser, setSessionsReadyUser] = useState(null);
   const [cloudStatus, setCloudStatus] = useState("syncing");
   const [examDraft, setExamDraft] = useState({ title: "", subject: "", date: "" });
   const [topicDraft, setTopicDraft] = useState({ title: "", subject: "" });
@@ -107,28 +103,6 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
   }, [userId, dataKey]);
 
   useEffect(() => {
-    let active = true;
-    setSessionsReadyUser(null);
-    const load = async () => {
-      const local = safeRead(sessionsKey, []);
-      try {
-        const { data, error } = await supabase.from("studyflow_focus_sessions").select("record_id,data").eq("user_id", userId).order("created_at", { ascending: false }).limit(500);
-        if (error) throw error;
-        if (!active) return;
-        const remote = (data || []).map((row) => ({ ...(row.data || {}), id: row.data?.id || row.record_id })).filter((item) => item.id);
-        setSessions(remote.length ? remote : local);
-      } catch (error) {
-        console.error("StudyFlow focus history read failed:", error);
-        if (active) setSessions(local);
-      } finally {
-        if (active) setSessionsReadyUser(userId);
-      }
-    };
-    load();
-    return () => { active = false; };
-  }, [userId, sessionsKey]);
-
-  useEffect(() => {
     if (dataReadyUser !== userId) return undefined;
     try {
       window.localStorage.setItem(dataKey + ":exams", JSON.stringify(exams));
@@ -157,35 +131,6 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
     return () => window.clearTimeout(timeout);
   }, [userId, dataKey, dataReadyUser, exams, syllabus, reminderPrefs, messages]);
 
-  useEffect(() => {
-    if (sessionsReadyUser !== userId) return undefined;
-    try {
-      window.localStorage.setItem(sessionsKey, JSON.stringify(sessions));
-    } catch (error) {
-      console.error("StudyFlow focus local backup failed:", error);
-    }
-    const timeout = window.setTimeout(async () => {
-      try {
-        const valid = sessions.filter((session) => session && typeof session.id === "string").slice(0, 500);
-        const { data: existing, error: selectError } = await supabase.from("studyflow_focus_sessions").select("record_id").eq("user_id", userId);
-        if (selectError) throw selectError;
-        if (valid.length) {
-          const { error } = await supabase.from("studyflow_focus_sessions").upsert(valid.map((session) => ({ user_id: userId, record_id: session.id, data: session, updated_at: new Date().toISOString() })), { onConflict: "user_id,record_id" });
-          if (error) throw error;
-        }
-        const live = new Set(valid.map((session) => session.id));
-        const stale = (existing || []).map((row) => row.record_id).filter((id) => !live.has(id));
-        if (stale.length) {
-          const { error } = await supabase.from("studyflow_focus_sessions").delete().eq("user_id", userId).in("record_id", stale);
-          if (error) throw error;
-        }
-      } catch (error) {
-        console.error("StudyFlow focus history cloud save failed:", error);
-      }
-    }, 650);
-    return () => window.clearTimeout(timeout);
-  }, [userId, sessionsKey, sessionsReadyUser, sessions]);
-
   const recordSession = useCallback((seconds) => {
     if (!selectedTask || seconds < 60) {
       setToast("Complete at least one minute of focus on a selected task to log a session.");
@@ -199,13 +144,15 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
       subject: selectedTask.subject || "Uncategorized",
       startedAt: new Date(ended.getTime() - seconds * 1000).toISOString(),
       endedAt: ended.toISOString(),
+      finishedAt: ended.toISOString(),
       date: dateKey(ended),
+      localDate: dateKey(ended),
       durationSeconds: seconds,
       durationMinutes: Math.max(1, Math.round(seconds / 60)),
     };
     setSessions((current) => [session, ...current].slice(0, 500));
     setToast("Focus session saved to your study history.");
-  }, [selectedTask, setToast]);
+  }, [selectedTask, setToast, setSessions]);
 
   const finishTimer = useCallback(() => {
     if (guard.current) return;
