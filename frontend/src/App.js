@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  CalendarDays,
+  CalendarDays,\n  Cloud,\n  CloudOff,\n  RefreshCw,
   Check,
   CheckCircle2,
   Clock3,
@@ -30,7 +30,7 @@ import Login from "./components/auth/login";
 import Signup from "./components/auth/signup";
 import { useAuth } from "./context/AuthContext";
 
-import StudyFlowHeroAnimation from "./components/StudyFlowHeroAnimation";
+import StudyFlowHeroAnimation from "./components/StudyFlowHeroAnimation";\nimport StudyFlowWorkspace from "./components/StudyFlowWorkspace";\nimport useStudyFlowCloudSync from "./hooks/useStudyFlowCloudSync";
 import StudyMusicPlayer from "./components/StudyMusicPlayer";
 
 import "./App.css";
@@ -125,7 +125,7 @@ function App() {
   const [toast, setToast] = useState("");
 
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState(EMPTY_FORM);
+  const [editForm, setEditForm] = useState(EMPTY_FORM);\n\n  const cloudSync = useStudyFlowCloudSync({ user, tasks, setTasks, timetable, setTimetable });
 
   useEffect(() => {
     saveTasks(tasks);
@@ -362,10 +362,14 @@ function App() {
 
   if (!user) {
     return showSignup ? (
-      <Signup onShowLogin={() => setShowSignup(false)} tasks={tasks} />
+      <Signup onShowLogin={() => setShowSignup(false)} />
     ) : (
-      <Login onShowSignup={() => setShowSignup(true)} tasks={tasks} />
+      <Login onShowSignup={() => setShowSignup(true)} />
     );
+  }
+
+  if (!cloudSync.isReady) {
+    return <div className="app-loading">Syncing your StudyFlow data...</div>;
   }
 
   return (
@@ -410,6 +414,20 @@ function App() {
         <Timetable
           timetable={timetable}
           setTimetable={setTimetable}
+          setToast={setToast}
+        />
+
+        <div className={"cloud-sync-status cloud-sync-" + cloudSync.status} role="status" aria-live="polite">
+          {cloudSync.status === "error" ? <CloudOff size={16} /> : cloudSync.status === "syncing" ? <RefreshCw size={16} /> : cloudSync.status === "synced" ? <Cloud size={16} /> : <Cloud size={16} />}
+          <span>{cloudSync.status === "error" ? "Cloud sync unavailable. Local backup is active." : cloudSync.status === "syncing" ? "Syncing tasks and timetable..." : cloudSync.status === "synced" ? "Tasks and timetable synced to your account" : "Local mode"}</span>
+        </div>
+
+        <StudyFlowWorkspace
+          key={user.id}
+          user={user}
+          tasks={tasks}
+          setTasks={setTasks}
+          timetable={timetable}
           setToast={setToast}
         />
 

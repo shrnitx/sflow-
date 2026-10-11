@@ -1467,3 +1467,24 @@ select {
     flex-direction: column;
   }
 }
+
+
+.cloud-sync-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 13px;
+  margin: 0 0 18px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  color: var(--brown);
+  background: rgba(255, 250, 237, 0.7);
+  font-size: 0.77rem;
+  font-weight: 650;
+}
+.cloud-sync-status svg { flex: 0 0 auto; }
+.cloud-sync-synced { color: #28734f; border-color: rgba(16,185,129,.25); background: rgba(16,185,129,.06); }
+.cloud-sync-error { color: #9a3b1f; border-color: rgba(169,85,37,.2); background: rgba(169,85,37,.06); }
+.cloud-sync-syncing svg { animation: sf-cloud-spin 1.2s linear infinite; }
+@keyframes sf-cloud-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .cloud-sync-syncing svg { animation: none; } }
