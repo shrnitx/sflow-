@@ -1160,6 +1160,20 @@ function App() {
           </form>
         </div>
       )}
+
+      {selectedClass && (
+        <ClassDetails
+          classItem={selectedClass}
+          tasks={tasks}
+          onClose={() => setSelectedClass(null)}
+        />
+      )}
+
+      {toast && (
+        <div className="toast" role="status" aria-live="polite">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
