@@ -40,7 +40,7 @@ function daysUntil(value) {
   return Math.round((date - today) / 86400000);
 }
 
-function ReminderSettings({ userId, timetable, tasks, onToast }) {
+function ReminderSettings({ userId, timetable, tasks, onToast, visible = true }) {
   const [settings, setSettings] = useState(() => getSettings(userId));
   const [permission, setPermission] = useState(
     typeof Notification === "undefined" ? "unsupported" : Notification.permission
@@ -158,6 +158,8 @@ function ReminderSettings({ userId, timetable, tasks, onToast }) {
       onToast("Could not enable notifications in this browser.");
     }
   };
+
+  if (!visible) return null;
 
   return (
     <section className="panel reminder-panel">
