@@ -16,11 +16,20 @@ import {
 
 import {
   loadTasks,
-  saveTasks,
   loadTimetable,
-  saveTimetable,
+  loadUserTasks,
+  loadUserTimetable,
+  saveUserTasks,
+  saveUserTimetable,
+  wasLegacyMigrationReviewed,
+  markLegacyMigrationReviewed,
   makeId,
 } from "./utils/storage";
+
+import {
+  loadUserCollection,
+  syncUserCollection,
+} from "./utils/cloudStorage";
 
 import TodayClasses from "./components/TodayClasses";
 import ClassDetails from "./components/ClassDetails";
@@ -93,6 +102,11 @@ function daysOverdue(task) {
 function App() {
   const { user, loading, signOut } = useAuth();
   const [showSignup, setShowSignup] = useState(false);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataLoadedFor, setDataLoadedFor] = useState(null);
+  const [dataLoadAttempt, setDataLoadAttempt] = useState(0);
+  const [dataSyncing, setDataSyncing] = useState(false);
+  const [dataSyncError, setDataSyncError] = useState("");
 
   const [tasks, setTasks] = useState(() => {
     try {
@@ -125,12 +139,144 @@ function App() {
   const [editForm, setEditForm] = useState(EMPTY_FORM);
 
   useEffect(() => {
-    saveTasks(tasks);
-  }, [tasks]);
+    if (!user?.id) {
+      setDataLoadedFor(null);
+      setDataLoading(false);
+      setDataSyncError("");
+      return;
+    }
+
+    let cancelled = false;
+
+    const initializeUserData = async () => {
+      setDataLoading(true);
+      setDataSyncError("");
+
+      try {
+        const results = await Promise.all([
+          loadUserCollection("tasks", user.id),
+          loadUserCollection("timetable", user.id),
+        ]);
+
+        if (cancelled) return;
+
+        let nextTasks = results[0];
+        let nextTimetable = results[1];
+
+        // A per-user cache may contain writes made while Supabase was unreachable.
+        // Restore it only when the cloud collection is empty; cloud data wins otherwise.
+        const cachedTasks = loadUserTasks(user.id);
+        const cachedTimetable = loadUserTimetable(user.id);
+
+        if (nextTasks.length === 0 && cachedTasks.length > 0) {
+          await syncUserCollection("tasks", user.id, cachedTasks);
+          nextTasks = cachedTasks;
+        }
+
+        if (nextTimetable.length === 0 && cachedTimetable.length > 0) {
+          await syncUserCollection("timetable", user.id, cachedTimetable);
+          nextTimetable = cachedTimetable;
+        }
+
+        // Older versions used shared browser keys. Never import them silently:
+        // ask the signed-in user, and only import into collections that are empty.
+        if (!wasLegacyMigrationReviewed()) {
+          const legacyTasks = loadTasks();
+          const legacyTimetable = loadTimetable();
+          const canImportTasks = nextTasks.length === 0 && legacyTasks.length > 0;
+          const canImportTimetable =
+            nextTimetable.length === 0 && legacyTimetable.length > 0;
+          const importSummary = [];
+
+          if (canImportTasks) importSummary.push(legacyTasks.length + " task(s)");
+          if (canImportTimetable) {
+            importSummary.push(legacyTimetable.length + " timetable entr(y/ies)");
+          }
+
+          if (importSummary.length > 0) {
+            const accountLabel = user.email ? " (" + user.email + ")" : "";
+            const shouldImport = window.confirm(
+              "StudyFlow found old data saved only in this browser: " +
+                importSummary.join(" and ") +
+                ".\n\nImport it into the signed-in account" +
+                accountLabel +
+                "? Existing cloud data will not be overwritten.\n\nChoose Cancel to leave the old browser data untouched."
+            );
+
+            if (shouldImport) {
+              if (canImportTasks) {
+                await syncUserCollection("tasks", user.id, legacyTasks);
+                nextTasks = legacyTasks;
+              }
+
+              if (canImportTimetable) {
+                await syncUserCollection("timetable", user.id, legacyTimetable);
+                nextTimetable = legacyTimetable;
+              }
+            }
+          }
+
+          markLegacyMigrationReviewed();
+        }
+
+        if (cancelled) return;
+
+        saveUserTasks(user.id, nextTasks);
+        saveUserTimetable(user.id, nextTimetable);
+        setTasks(nextTasks);
+        setTimetable(nextTimetable);
+        setDataLoadedFor(user.id);
+        setDataSyncError("");
+      } catch (error) {
+        if (cancelled) return;
+
+        console.error("Failed to load StudyFlow cloud data:", error);
+        setTasks(loadUserTasks(user.id));
+        setTimetable(loadUserTimetable(user.id));
+        setDataLoadedFor(user.id);
+        setDataSyncError(
+          "Cloud data could not be loaded. Your account-specific browser cache is shown, but changes may not sync until the Supabase tables and permissions are configured."
+        );
+      } finally {
+        if (!cancelled) setDataLoading(false);
+      }
+    };
+
+    initializeUserData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.email, dataLoadAttempt]);
 
   useEffect(() => {
-    saveTimetable(timetable);
-  }, [timetable]);
+    if (!user?.id || dataLoadedFor !== user.id) return;
+
+    // Cache by user ID; do not put account data back into the old shared browser keys.
+    saveUserTasks(user.id, tasks);
+    saveUserTimetable(user.id, timetable);
+
+    const timer = setTimeout(async () => {
+      setDataSyncing(true);
+
+      try {
+        await Promise.all([
+          syncUserCollection("tasks", user.id, tasks),
+          syncUserCollection("timetable", user.id, timetable),
+        ]);
+        setDataSyncError("");
+      } catch (error) {
+        console.error("StudyFlow cloud sync failed:", error);
+        setDataSyncError(
+          "Cloud sync failed. Your latest changes remain in this account's browser cache. Check the Supabase migration and policies, then retry."
+        );
+      } finally {
+        setDataSyncing(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [tasks, timetable, user?.id, dataLoadedFor]);
 
   useEffect(() => {
     if (!toast) return;
@@ -363,6 +509,10 @@ function App() {
     );
   }
 
+  if (dataLoading) {
+    return <div className="app-loading">Loading your StudyFlow data...</div>;
+  }
+
   return (
     <div className="studyflow-bg">
       <main className="app-shell">
@@ -402,6 +552,25 @@ function App() {
             </button>
           </div>
         </header>
+
+        {dataSyncError && (
+          <div className="cloud-sync-warning" role="alert">
+            <span>{dataSyncError}</span>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={() => setDataLoadAttempt((attempt) => attempt + 1)}
+            >
+              Retry cloud sync
+            </button>
+          </div>
+        )}
+
+        {!dataSyncError && dataSyncing && (
+          <div className="cloud-sync-status" role="status" aria-live="polite">
+            Saving changes to your account...
+          </div>
+        )}
 
         <TodayClasses
           timetable={timetable}
@@ -813,7 +982,13 @@ function App() {
         <footer className="footer">
           <span>StudyFlow</span>
           <span>Made for students</span>
-          <span>Data saved locally in your browser</span>
+          <span>
+            {dataSyncError
+              ? "Account-specific browser cache available"
+              : dataSyncing
+              ? "Syncing to your account..."
+              : "Cloud sync enabled"}
+          </span>
         </footer>
       </main>
 
