@@ -811,6 +811,7 @@ function App() {
               type="button"
               className={`dashboard-nav-item ${activeSection === id ? "is-active" : ""}`}
               onClick={() => handleSectionChange(id)}
+              aria-label={label}
               aria-current={activeSection === id ? "page" : undefined}
             >
               <Icon size={17} />
