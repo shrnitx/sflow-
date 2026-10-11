@@ -675,6 +675,16 @@ function App() {
     setTasks((current) => [...items, ...current]);
   };
 
+  const retryCloudSync = () => {
+    if (cloudReadyFor === user?.id) {
+      // After a successful load, retry the current local state rather than
+      // reloading an older cloud snapshot over edits that have not synced yet.
+      setDataSyncError("");
+    } else {
+      setDataLoadAttempt((attempt) => attempt + 1);
+    }
+  };
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -788,7 +798,7 @@ function App() {
             <button
               type="button"
               className="ghost-button"
-              onClick={() => setDataLoadAttempt((attempt) => attempt + 1)}
+              onClick={retryCloudSync}
             >
               Retry cloud sync
             </button>
@@ -906,7 +916,7 @@ function App() {
               <button
                 type="button"
                 className="ghost-button"
-                onClick={() => setDataLoadAttempt((attempt) => attempt + 1)}
+                onClick={retryCloudSync}
               >
                 <RotateCcw size={16} /> Retry cloud sync
               </button>
