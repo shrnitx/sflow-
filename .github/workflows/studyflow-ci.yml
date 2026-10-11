@@ -1,0 +1,43 @@
+name: StudyFlow CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - "fix/**"
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Test and build frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      # Build-only values; never used for production deployment.
+      REACT_APP_SUPABASE_URL: https://example.supabase.co
+      REACT_APP_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_only_dummy_value
+      CI: "true"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test -- --watchAll=false
+
+      - name: Build production bundle
+        run: npm run build
