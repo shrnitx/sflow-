@@ -595,13 +595,13 @@ function App() {
           <div>
             <div className="eyebrow">
               <span className="eyebrow-dot" />
-              STUDENT PRODUCTIVITY
+              STUDYFLOW DASHBOARD
             </div>
 
-            <h1>StudyFlow</h1>
+            <h1>Hello, {getGreetingName(user)}</h1>
 
             <p>
-              Keep assignments, deadlines and priorities in one calm workspace.
+              Here are your class and exam alerts for today.
             </p>
           </div>
 
@@ -628,7 +628,30 @@ function App() {
           </div>
         </header>
 
-        {dataSyncError && (
+        <nav className="dashboard-nav" aria-label="Main navigation">
+          {[
+            { id: "home", label: "Overview", Icon: House },
+            { id: "timetable", label: "Timetable", Icon: CalendarRange },
+            { id: "tasks", label: "Tasks", Icon: ListChecks },
+            { id: "exams", label: "Exams", Icon: GraduationCap },
+          ].map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              className={`dashboard-nav-item ${activeSection === id ? "is-active" : ""}`}
+              onClick={() => handleSectionChange(id)}
+              aria-current={activeSection === id ? "page" : undefined}
+            >
+              <Icon size={17} />
+              <span>{label}</span>
+              {id === "exams" && examAlerts.length > 0 && (
+                <span className="dashboard-nav-count">{examAlerts.length}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        {activeSection !== "home" && dataSyncError && (
           <div className="cloud-sync-warning" role="alert">
             <span>{dataSyncError}</span>
             <button
@@ -641,23 +664,100 @@ function App() {
           </div>
         )}
 
-        {!dataSyncError && dataSyncing && (
+        {activeSection !== "home" && !dataSyncError && dataSyncing && (
           <div className="cloud-sync-status" role="status" aria-live="polite">
             Saving changes to your account...
           </div>
         )}
 
-        <TodayClasses
-          timetable={timetable}
-          onSelectClass={setSelectedClass}
-        />
+        {activeSection === "home" && (
+          <section className="dashboard-home-grid">
+            <TodayClasses
+              timetable={timetable}
+              onSelectClass={setSelectedClass}
+            />
 
-        <Timetable
-          timetable={timetable}
-          setTimetable={setTimetable}
-          setToast={setToast}
-        />
+            <section className="panel exam-alerts-panel">
+              <div className="panel-heading exam-alerts-heading">
+                <div>
+                  <span className="section-kicker">IMPORTANT DATES</span>
+                  <h2>Exam alerts</h2>
+                </div>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => handleSectionChange("exams")}
+                >
+                  View exams
+                </button>
+              </div>
 
+              {examAlerts.length === 0 ? (
+                <div className="exam-alert-empty">
+                  <div className="exam-alert-empty-icon">
+                    <GraduationCap size={22} />
+                  </div>
+                  <h3>No exams scheduled</h3>
+                  <p>Add an exam with its date to see reminders here.</p>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={() => handleSectionChange("exams")}
+                  >
+                    <Plus size={16} />
+                    Add an exam
+                  </button>
+                </div>
+              ) : (
+                <div className="exam-alert-list">
+                  {examAlerts.map((exam) => {
+                    const daysAway = daysUntilDate(exam.deadline);
+                    const urgencyLabel =
+                      daysAway === null
+                        ? formatDeadline(exam.deadline)
+                        : daysAway < 0
+                        ? `${Math.abs(daysAway)} day${Math.abs(daysAway) === 1 ? "" : "s"} overdue`
+                        : daysAway === 0
+                        ? "Today"
+                        : daysAway === 1
+                        ? "Tomorrow"
+                        : `In ${daysAway} days`;
+
+                    return (
+                      <article className="exam-alert-item" key={exam.id}>
+                        <div className="exam-alert-date">
+                          <CalendarDays size={17} />
+                          <span>{new Date(`${exam.deadline}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</span>
+                        </div>
+                        <div className="exam-alert-details">
+                          <strong>{exam.title}</strong>
+                          <span>{exam.subject || "General"} · {formatDeadline(exam.deadline)}</span>
+                          {exam.description && <p>{exam.description}</p>}
+                        </div>
+                        <span
+                          className={`exam-urgency ${daysAway !== null && daysAway < 0 ? "is-overdue" : daysAway === 0 ? "is-today" : ""}`}
+                        >
+                          {urgencyLabel}
+                        </span>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </section>
+        )}
+
+        {activeSection === "timetable" && (
+          <Timetable
+            timetable={timetable}
+            setTimetable={setTimetable}
+            setToast={setToast}
+          />
+        )}
+
+        {(activeSection === "tasks" || activeSection === "exams") && (
+          <>
         <section className="stats-grid">
           <div className="stat-card">
             <div className="stat-icon">
