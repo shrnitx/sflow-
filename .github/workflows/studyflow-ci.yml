@@ -52,3 +52,23 @@ jobs:
           test -s build/manifest.json
           test -s build/service-worker.js
           test -s build/studyflow-icon.svg
+
+      - name: Install Playwright for browser smoke tests
+        run: npm install --no-save --package-lock=false --legacy-peer-deps playwright
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke test production build in a browser
+        run: |
+          node e2e/serve.cjs > /tmp/studyflow-e2e-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:4173/ > /dev/null
+          node e2e/smoke.cjs
