@@ -6,6 +6,9 @@ import {
   Clock3,
   Flame,
   ListChecks,
+  House,
+  CalendarRange,
+  GraduationCap,
   Pencil,
   Plus,
   RotateCcw,
@@ -99,9 +102,37 @@ function daysOverdue(task) {
   return Math.ceil((today - deadline) / 86400000);
 }
 
+function isExamItem(item) {
+  const type = String(item?.type || item?.category || "").toLowerCase();
+  if (type === "exam" || type === "examination") return true;
+  if (type === "task" || type === "assignment") return false;
+
+  // Older task records had no explicit type, so infer exam records conservatively.
+  return /\b(exam|examination|midterm|finals?|quiz|viva|practical exam)\b/i.test(
+    `${item?.title || ""} ${item?.description || ""}`
+  );
+}
+
+function getGreetingName(user) {
+  const metadata = user?.user_metadata || {};
+  const name = String(metadata.name || metadata.full_name || metadata.fullName || "").trim();
+  if (name) return name;
+  return user?.email?.split("@")[0] || "there";
+}
+
+function daysUntilDate(value) {
+  if (!value) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  return Math.round((date - today) / 86400000);
+}
+
 function App() {
   const { user, loading, signOut } = useAuth();
   const [showSignup, setShowSignup] = useState(false);
+  const [activeSection, setActiveSection] = useState("home");
   const [dataLoading, setDataLoading] = useState(false);
   const [dataLoadedFor, setDataLoadedFor] = useState(null);
   const [cloudReadyFor, setCloudReadyFor] = useState(null);
@@ -138,6 +169,10 @@ function App() {
 
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
+
+  useEffect(() => {
+    setActiveSection("home");
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -333,7 +368,12 @@ function App() {
         const matchesPriority =
           priority === "All" || task.priority === priority;
 
-        return matchesSearch && matchesStatus && matchesPriority;
+        const matchesSection =
+          activeSection === "exams"
+            ? isExamItem(task)
+            : !isExamItem(task);
+
+        return matchesSearch && matchesStatus && matchesPriority && matchesSection;
       })
       .sort((a, b) => {
         if (a.completed !== b.completed) {
@@ -345,7 +385,7 @@ function App() {
 
         return aDate.localeCompare(bDate);
       });
-  }, [tasks, search, status, priority]);
+  }, [tasks, search, status, priority, activeSection]);
 
   const setField = (key, value) => {
     setForm((current) => ({
@@ -391,6 +431,7 @@ function App() {
 
     const newTask = {
       id: makeId(),
+      type: activeSection === "exams" ? "exam" : "task",
       title: form.title.trim(),
       subject: form.subject,
       deadline: form.deadline,
