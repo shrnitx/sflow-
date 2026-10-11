@@ -2352,3 +2352,63 @@ select {
     grid-template-columns: 1fr 1fr;
   }
 }
+
+
+/* Keep OCR fields readable on both desktop and phone widths. */
+.timetable-import-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.timetable-import-core {
+  display: grid;
+  grid-template-columns: minmax(170px, 1.45fr) minmax(115px, 0.85fr) repeat(2, minmax(100px, 0.75fr)) 32px;
+  align-items: end;
+  gap: 10px;
+}
+
+.timetable-import-extra {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: end;
+  gap: 10px;
+  margin-top: 11px;
+  padding-top: 11px;
+  border-top: 1px solid rgba(217, 201, 165, 0.7);
+}
+
+@media (max-width: 900px) {
+  .timetable-import-core {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .timetable-import-core .timetable-import-subject {
+    grid-column: 1 / -1;
+  }
+
+  .timetable-import-core .timetable-import-remove {
+    grid-column: 2;
+    justify-self: end;
+  }
+
+  .timetable-import-extra {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .timetable-import-core,
+  .timetable-import-extra {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .timetable-import-core .timetable-import-subject,
+  .timetable-import-core .timetable-import-remove {
+    grid-column: auto;
+  }
+
+  .timetable-import-core .timetable-import-remove {
+    justify-self: end;
+  }
+}
