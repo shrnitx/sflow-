@@ -78,6 +78,24 @@ async function main() {
       });
       return;
     }
+    if (requestUrl.pathname === "/auth/v1/token") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(makeSession()),
+      });
+      return;
+    }
+    if (requestUrl.pathname === "/auth/v1/signup") {
+      const session = makeSession();
+      session.user.identities = [{ identity_id: "ci-email-identity", provider: "email" }];
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(session),
+      });
+      return;
+    }
     if (requestUrl.pathname === "/auth/v1/user") {
       await route.fulfill({
         status: 200,
@@ -226,6 +244,29 @@ async function main() {
     const workspaceTimer = page.locator(".sfw-button-row");
     await workspaceTimer.getByRole("button", { name: "Start focus", exact: true }).click();
     await workspaceTimer.getByRole("button", { name: "Pause", exact: true }).waitFor();
+
+    const secondsFromClock = (value) => {
+      const match = String(value || "").match(/^(\d{2}):(\d{2})$/);
+      assert.ok(match, "Study Lab timer should expose a valid MM:SS value");
+      return Number(match[1]) * 60 + Number(match[2]);
+    };
+    const secondsBeforeNavigation = secondsFromClock(
+      await page.locator(".sfw-timer-dial").getAttribute("aria-label")
+    );
+    await page.waitForTimeout(1100);
+    await page.getByRole("button", { name: "Tasks", exact: true }).click();
+    await page.waitForTimeout(1400);
+    await page.getByRole("button", { name: "Study Lab", exact: true }).click();
+    await page.locator(".sfw-timer-dial").waitFor();
+    const secondsAfterNavigation = secondsFromClock(
+      await page.locator(".sfw-timer-dial").getAttribute("aria-label")
+    );
+    assert.ok(
+      secondsAfterNavigation < secondsBeforeNavigation,
+      "The Study Lab focus timer must keep running while navigating to another section"
+    );
+    process.stdout.write("PASS: focus timer persists while navigating between sections\n");
+
     await workspaceTimer.getByRole("button", { name: "Pause", exact: true }).click();
     await workspaceTimer.getByRole("button", { name: "Resume", exact: true }).waitFor();
     await workspaceTimer.getByRole("button", { name: "Reset", exact: true }).click();
@@ -290,6 +331,25 @@ async function main() {
     await page.getByRole("button", { name: /Install \/ add to home screen/ }).waitFor();
     await page.getByText("Internet connection available", { exact: true }).waitFor();
     process.stdout.write("PASS: reminder preferences, quiet hours and offline/install settings UI\n");
+
+    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await page.getByRole("heading", { name: "Welcome Back", exact: true }).waitFor();
+    await page.locator("#login-email").fill("ci@example.com");
+    await page.locator("#login-password").fill("ci-password-123");
+    await page.getByRole("button", { name: "Login", exact: true }).click();
+    await page.getByRole("heading", { name: "Hello, CI Student", exact: true }).waitFor();
+    process.stdout.write("PASS: login restores the authenticated dashboard\n");
+
+    await page.getByRole("button", { name: "Sign out", exact: true }).click();
+    await page.getByRole("button", { name: "Create account", exact: true }).click();
+    await page.getByRole("heading", { name: "Create Account", exact: true }).waitFor();
+    await page.locator("#signup-name").fill("CI Student");
+    await page.locator("#signup-email").fill("new-ci-student@example.com");
+    await page.locator("#signup-password").fill("ci-password-123");
+    await page.locator("#signup-confirm").fill("ci-password-123");
+    await page.getByRole("button", { name: "Create Account", exact: true }).click();
+    await page.getByRole("heading", { name: "Hello, CI Student", exact: true }).waitFor();
+    process.stdout.write("PASS: sign-up completes through the mocked Auth API\n");
 
     assert.deepEqual(consoleErrors, [], "Browser reported uncaught page errors");
     process.stdout.write("PASS: no uncaught browser page errors\n");
