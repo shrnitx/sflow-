@@ -11,7 +11,6 @@ import {
   House,
   CalendarRange,
   GraduationCap,
-  Timer,
   Settings,
   Pencil,
   Plus,
@@ -48,7 +47,6 @@ import Timetable from "./components/Timetable";
 import ReminderSettings from "./components/ReminderSettings";
 import QuickAdd from "./components/QuickAdd";
 import ExamPrepPlanner from "./components/ExamPrepPlanner";
-import FocusMode from "./components/FocusMode";
 
 import Login from "./components/auth/login";
 import Signup from "./components/auth/signup";
@@ -761,7 +759,7 @@ function App() {
     <div className="studyflow-bg">
       <main className="app-shell">
         <header className="hero">
-          <div>
+          <div className="hero-copy">
             <div className="eyebrow">
               <span className="eyebrow-dot" />
               STUDYFLOW DASHBOARD
@@ -805,8 +803,7 @@ function App() {
             { id: "timetable", label: "Timetable", Icon: CalendarRange },
             { id: "tasks", label: "Tasks", Icon: ListChecks },
             { id: "exams", label: "Exams", Icon: GraduationCap },
-            { id: "focus", label: "Focus", Icon: Timer },
-            { id: "studycoach", label: "Study Coach", Icon: BrainCircuit },
+            { id: "studycoach", label: "Study Lab", Icon: BrainCircuit },
             { id: "settings", label: "Settings", Icon: Settings },
           ].map(({ id, label, Icon }) => (
             <button
@@ -833,18 +830,12 @@ function App() {
           visible={activeSection === "settings"}
         />
 
-        <FocusMode
-          timetable={timetable}
-          tasks={tasks}
-          sessions={focusSessions}
-          setSessions={setFocusSessions}
-          onToast={setToast}
-          visible={activeSection === "focus"}
-        />
-
-        {activeSection === "focus" && <StudyMusicPlayer />}
-
-        {activeSection === "studycoach" && (
+        <section
+          className="studyflow-workspace-shell"
+          style={activeSection === "studycoach" ? undefined : { display: "none" }}
+          aria-hidden={activeSection !== "studycoach"}
+        >
+          <StudyMusicPlayer />
           <StudyFlowWorkspace
             key={user.id}
             user={user}
@@ -855,7 +846,7 @@ function App() {
             sessions={focusSessions}
             setSessions={setFocusSessions}
           />
-        )}
+        </section>
 
         {activeSection !== "home" && dataSyncError && (
           <div className="cloud-sync-warning" role="alert">
