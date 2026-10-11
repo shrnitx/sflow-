@@ -83,7 +83,11 @@ function escapeRegExp(value) {
 function cleanTitle(source) {
   return source
     .replace(/\b(?:due|deadline|by)\s+(?:day after tomorrow|tomorrow|today|next\s+)?(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi, " ")
+    .replace(/\b(?:next|this)\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi, " ")
+    .replace(/\b(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/gi, " ")
+    .replace(/\bday after tomorrow\b/gi, " ")
     .replace(/\b(?:due|deadline|by)\s+(?:day after tomorrow|tomorrow|today)\b/gi, " ")
+    .replace(/\b(?:tomorrow|today)\b/gi, " ")
     .replace(/\bin\s+\d{1,3}\s+days?\b/gi, " ")
     .replace(/\b20\d{2}-\d{2}-\d{2}\b/g, " ")
     .replace(/\b\d{1,2}[/-]\d{1,2}(?:[/-]20\d{2})?\b/g, " ")
