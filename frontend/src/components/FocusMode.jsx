@@ -65,7 +65,7 @@ function FocusMode({ timetable, tasks, sessions, setSessions, onToast, visible =
     if (!running && remainingSeconds > 0 && !startedRef.current) {
       setRemainingSeconds(Number(durationMinutes) * 60);
     }
-  }, [durationMinutes]); // changing the duration resets an idle timer
+  }, [durationMinutes, running, remainingSeconds]); // changing the duration resets an idle timer
 
   const start = () => {
     if (remainingSeconds <= 0) {
