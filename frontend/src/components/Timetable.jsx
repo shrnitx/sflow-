@@ -14,6 +14,7 @@ import {
   timeToMinutes,
 } from "../utils/timetable";
 import { makeId } from "../utils/storage";
+import TimetableScreenshotImport from "./TimetableScreenshotImport";
 
 const EMPTY_FORM = {
   subject: "",
@@ -125,6 +126,50 @@ function Timetable({ timetable, setTimetable, setToast }) {
     });
   };
 
+  const importScreenshotEntries = (entries, replaceExisting) => {
+    const imported = entries.map((entry) => ({
+      ...entry,
+      id: makeId(),
+      recurring: true,
+      createdAt: new Date().toISOString(),
+    }));
+
+    if (replaceExisting) {
+      setTimetable(imported);
+      setToast(`Imported ${imported.length} classes and replaced the current timetable.`);
+      return;
+    }
+
+    const currentKeys = new Set(
+      timetable.map((item) =>
+        [
+          item.day,
+          item.startTime,
+          item.endTime,
+          item.subject.trim().toLowerCase(),
+        ].join("|")
+      )
+    );
+    const freshEntries = imported.filter((item) => {
+      const key = [
+        item.day,
+        item.startTime,
+        item.endTime,
+        item.subject.trim().toLowerCase(),
+      ].join("|");
+      if (currentKeys.has(key)) return false;
+      currentKeys.add(key);
+      return true;
+    });
+
+    setTimetable((current) => [...current, ...freshEntries]);
+    setToast(
+      freshEntries.length
+        ? `Imported ${freshEntries.length} classes. Exact duplicates were skipped.`
+        : "All detected classes already exist in your timetable."
+    );
+  };
+
   const deleteClass = (id) => {
     const item = timetable.find(
       (entry) => entry.id === id
@@ -164,6 +209,11 @@ function Timetable({ timetable, setTimetable, setToast }) {
           </h2>
         </div>
       </div>
+
+      <TimetableScreenshotImport
+        existingCount={timetable.length}
+        onImport={importScreenshotEntries}
+      />
 
       <form
         className="timetable-form"
