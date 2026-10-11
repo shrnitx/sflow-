@@ -431,7 +431,7 @@ function App() {
     const nextErrors = {};
 
     if (!form.title.trim()) {
-      nextErrors.title = "Task title is required.";
+      nextErrors.title = activeSection === "exams" ? "Exam name is required." : "Task title is required.";
     }
 
     if (!form.subject) {
@@ -523,7 +523,7 @@ function App() {
     event.preventDefault();
 
     if (!editForm.title.trim()) {
-      setToast("Task title is required.");
+      setToast(isExamItem(tasks.find((task) => task.id === editingId)) ? "Exam name is required." : "Task title is required.");
       return;
     }
 
@@ -765,7 +765,7 @@ function App() {
             </div>
 
             <div>
-              <span className="stat-label">Total Tasks</span>
+              <span className="stat-label">{activeSection === "exams" ? "Total Exams" : "Total Tasks"}</span>
               <strong>{stats.total}</strong>
             </div>
           </div>
@@ -776,7 +776,7 @@ function App() {
             </div>
 
             <div>
-              <span className="stat-label">Pending</span>
+              <span className="stat-label">{activeSection === "exams" ? "Upcoming" : "Pending"}</span>
               <strong>{stats.pending}</strong>
             </div>
           </div>
@@ -787,7 +787,7 @@ function App() {
             </div>
 
             <div>
-              <span className="stat-label">Completed</span>
+              <span className="stat-label">{activeSection === "exams" ? "Completed Exams" : "Completed"}</span>
               <strong>{stats.completed}</strong>
             </div>
           </div>
@@ -798,7 +798,7 @@ function App() {
             </div>
 
             <div>
-              <span className="stat-label">High Priority</span>
+              <span className="stat-label">{activeSection === "exams" ? "High Priority Exams" : "High Priority"}</span>
               <strong>{stats.highPriority}</strong>
             </div>
           </div>
@@ -1193,11 +1193,11 @@ function App() {
             <div className="edit-dialog-heading">
               <div>
                 <span className="section-kicker">
-                  UPDATE YOUR WORK
+                  {isExamItem(tasks.find((task) => task.id === editingId)) ? "UPDATE EXAM" : "UPDATE YOUR WORK"}
                 </span>
 
                 <h2 id="edit-dialog-title">
-                  Edit task
+                  {isExamItem(tasks.find((task) => task.id === editingId)) ? "Edit exam" : "Edit task"}
                 </h2>
               </div>
 
@@ -1214,7 +1214,7 @@ function App() {
             <div className="edit-dialog-form">
               <div className="field full">
                 <label htmlFor="edit-title">
-                  Task title
+                  {isExamItem(tasks.find((task) => task.id === editingId)) ? "Exam name" : "Task title"}
                 </label>
 
                 <input
@@ -1259,7 +1259,7 @@ function App() {
 
               <div className="field">
                 <label htmlFor="edit-deadline">
-                  Deadline
+                  {isExamItem(tasks.find((task) => task.id === editingId)) ? "Exam date" : "Deadline"}
                 </label>
 
                 <input
