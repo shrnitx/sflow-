@@ -707,6 +707,14 @@ function App() {
           ))}
         </nav>
 
+        <ReminderSettings
+          userId={user.id}
+          timetable={timetable}
+          tasks={tasks}
+          onToast={setToast}
+          visible={activeSection === "settings"}
+        />
+
         {activeSection !== "home" && dataSyncError && (
           <div className="cloud-sync-warning" role="alert">
             <span>{dataSyncError}</span>
@@ -827,12 +835,6 @@ function App() {
 
         {activeSection === "settings" && (
           <section className="dashboard-settings-grid">
-            <ReminderSettings
-              userId={user.id}
-              timetable={timetable}
-              tasks={tasks}
-              onToast={setToast}
-            />
             <section className="panel offline-settings-panel">
               <div className="panel-heading">
                 <div>
