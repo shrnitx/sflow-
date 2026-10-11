@@ -127,24 +127,42 @@ function isExamItem(item) {
 }
 
 function mergeOfflineCollection(cloudRecords, localRecords, baselineRecords) {
-  const merged = new Map(
-    (Array.isArray(cloudRecords) ? cloudRecords : []).map((item) => [item.id, item])
-  );
-  const local = Array.isArray(localRecords) ? localRecords : [];
-  const localIds = new Set(local.map((item) => item.id));
+  const baseline = new Map((Array.isArray(baselineRecords) ? baselineRecords : []).map((item) => [item.id, item]));
+  const local = new Map((Array.isArray(localRecords) ? localRecords : []).map((item) => [item.id, item]));
+  const cloud = new Map((Array.isArray(cloudRecords) ? cloudRecords : []).map((item) => [item.id, item]));
+  const allIds = new Set([...baseline.keys(), ...local.keys(), ...cloud.keys()]);
+  const merged = new Map();
 
-  // A record present in the local baseline but removed while offline is a
-  // deliberate local deletion. Do not resurrect it from the cloud snapshot.
-  (Array.isArray(baselineRecords) ? baselineRecords : []).forEach((item) => {
-    if (!localIds.has(item.id)) merged.delete(item.id);
+  allIds.forEach((id) => {
+    const hadBaseline = baseline.has(id);
+    const hasLocal = local.has(id);
+    const hasCloud = cloud.has(id);
+    const baselineRecord = baseline.get(id);
+    const localRecord = local.get(id);
+    const cloudRecord = cloud.get(id);
+
+    const localChanged =
+      hasLocal !== hadBaseline ||
+      (hasLocal && hadBaseline && !sameRecord(localRecord, baselineRecord));
+    const cloudChanged =
+      hasCloud !== hadBaseline ||
+      (hasCloud && hadBaseline && !sameRecord(cloudRecord, baselineRecord));
+
+    // Preserve local changes when a local and remote edit conflict. Otherwise,
+    // keep the remote version, including remote deletions of untouched records.
+    if (localChanged && (!cloudChanged || hasLocal)) {
+      if (hasLocal) merged.set(id, localRecord);
+      return;
+    }
+    if (cloudChanged) {
+      if (hasCloud) merged.set(id, cloudRecord);
+      return;
+    }
+    if (hasCloud) merged.set(id, cloudRecord);
   });
 
-  // Local edits win for IDs cached before a failed first load, while remote-only
-  // records remain in the merged result. The normal cloud sync then reconciles it.
-  local.forEach((item) => merged.set(item.id, item));
   return [...merged.values()];
 }
-
 
 function stableValue(value) {
   if (Array.isArray(value)) return value.map(stableValue);
