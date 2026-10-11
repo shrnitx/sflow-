@@ -3,6 +3,7 @@ import { supabase } from "../lib/supabaseClient";
 const TABLES = {
   tasks: "studyflow_tasks",
   timetable: "studyflow_timetable",
+  focusSessions: "studyflow_focus_sessions",
 };
 
 // Serialize writes per user/table so a slower older save cannot overtake a newer one.
@@ -21,6 +22,14 @@ function validRecord(collection, record) {
 
   if (collection === "tasks") {
     return typeof record.title === "string";
+  }
+
+  if (collection === "focusSessions") {
+    return (
+      typeof record.startedAt === "string" &&
+      Number.isFinite(Number(record.durationMinutes)) &&
+      Number(record.durationMinutes) > 0
+    );
   }
 
   return (
