@@ -63,6 +63,7 @@ function FocusMode({ timetable, tasks, sessions, setSessions, onToast, visible =
       durationMinutes: Math.max(1, Math.round(actualSeconds / 60)),
       durationSeconds: actualSeconds,
       subject: subject || "General study",
+      date: dateKey(now),
       localDate: dateKey(now),
     };
     setSessions((current) => [session, ...current].slice(0, 1000));
