@@ -31,6 +31,7 @@ import Signup from "./components/auth/signup";
 import { useAuth } from "./context/AuthContext";
 
 import StudyFlowHeroAnimation from "./components/StudyFlowHeroAnimation";
+import StudyMusicPlayer from "./components/StudyMusicPlayer";
 
 import "./App.css";
 
@@ -403,6 +404,8 @@ function App() {
           timetable={timetable}
           onSelectClass={setSelectedClass}
         />
+
+        <StudyMusicPlayer />
 
         <Timetable
           timetable={timetable}
