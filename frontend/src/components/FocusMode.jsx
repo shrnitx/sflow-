@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { BarChart3, CheckCircle2, CirclePause, CirclePlay, RotateCcw, Timer } from "lucide-react";
 import { makeId } from "../utils/storage";
-import { WEEKDAYS, DAYS } from "../utils/timetable";
 
 function dateKey(date) {
   return [
@@ -11,7 +10,7 @@ function dateKey(date) {
   ].join("-");
 }
 
-function FocusMode({ userId, timetable, tasks, sessions, setSessions, onToast }) {
+function FocusMode({ timetable, tasks, sessions, setSessions, onToast, visible = true }) {
   const [durationMinutes, setDurationMinutes] = useState(25);
   const [subject, setSubject] = useState("");
   const [remainingSeconds, setRemainingSeconds] = useState(25 * 60);
@@ -117,7 +116,7 @@ function FocusMode({ userId, timetable, tasks, sessions, setSessions, onToast })
   const maxSubjectMinutes = Math.max(1, ...Object.values(minutesBySubject));
 
   return (
-    <div className="focus-page">
+    <div className="focus-page" style={visible ? undefined : { display: "none" }} aria-hidden={!visible}>
       <section className="panel focus-panel">
         <div className="panel-heading">
           <div>
