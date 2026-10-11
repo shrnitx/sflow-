@@ -11,10 +11,17 @@ function localDateKey(date) {
 }
 
 function ExamPrepPlanner({ exams, existingTasks = [], onGenerate, onToast }) {
+  const todayKey = localDateKey(new Date());
   const availableExams = useMemo(
-    () => [...exams].filter((exam) => exam.deadline && !exam.completed)
-      .sort((a, b) => a.deadline.localeCompare(b.deadline)),
-    [exams]
+    () => [...exams]
+      .filter((exam) => exam.deadline && !exam.completed)
+      .sort((a, b) => {
+        const aPast = a.deadline <= todayKey;
+        const bPast = b.deadline <= todayKey;
+        if (aPast !== bPast) return Number(aPast) - Number(bPast);
+        return a.deadline.localeCompare(b.deadline);
+      }),
+    [exams, todayKey]
   );
   const [examId, setExamId] = useState("");
   const [topicsText, setTopicsText] = useState("");
