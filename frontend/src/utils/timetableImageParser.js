@@ -567,9 +567,19 @@ function extractSingleDayCards(rows) {
       return;
     }
 
+    const instructorLine = usefulLines.find((line) =>
+      /^(?:Dr\.?|Prof\.?|Mr\.?|Mrs\.?|Ms\.?)\s+/i.test(line.text)
+    );
+    const roomLine = usefulLines.find((line) =>
+      /^(?:LT|CR|LAB|ROOM)\s*[-/]?\s*[A-Z0-9-]+$/i.test(line.text)
+    );
+
     result.push({
       day: null,
       subject,
+      courseCode: codeMatch?.[0] || "",
+      instructor: instructorLine?.text || "",
+      room: roomLine?.text || "",
       startTime: formatClock(candidate.times[0].minutes),
       endTime: formatClock(candidate.times[1].minutes),
       recurring: true,
