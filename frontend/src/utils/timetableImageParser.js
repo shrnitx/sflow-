@@ -462,6 +462,46 @@ function extractTransposedTimetable(rows) {
   );
 }
 
+function wordsFromTsv(tsv) {
+  if (typeof tsv !== "string" || !tsv.trim()) return [];
+
+  return tsv
+    .split(/\r?\n/)
+    .slice(1)
+    .map((line) => {
+      const columns = line.split("\t");
+      if (columns.length < 12 || Number(columns[0]) !== 5) return null;
+
+      const left = Number(columns[6]);
+      const top = Number(columns[7]);
+      const width = Number(columns[8]);
+      const height = Number(columns[9]);
+      const confidence = Number(columns[10]);
+      const text = columns.slice(11).join("\t").trim();
+
+      if (
+        !text ||
+        ![left, top, width, height].every(Number.isFinite) ||
+        width <= 0 ||
+        height <= 0
+      ) {
+        return null;
+      }
+
+      return {
+        text,
+        confidence: Number.isFinite(confidence) ? confidence : 0,
+        bbox: {
+          x0: left,
+          y0: top,
+          x1: left + width,
+          y1: top + height,
+        },
+      };
+    })
+    .filter(Boolean);
+}
+
 function rowText(row, words = row.words) {
   return [...words]
     .sort((a, b) => centerX(a) - centerX(b))
@@ -570,7 +610,7 @@ export async function recognizeTimetableScreenshot(file, onProgress = () => {}) 
 
     onProgress(2, "Preparing image reader");
     // Tesseract.js v6 disables word/block output unless it is explicitly requested.
-    const { data } = await worker.recognize(file, {}, { blocks: true });
+    const { data } = await worker.recognize(file, {}, { blocks: true, tsv: true });
     const recognizedLines = (data.blocks || []).flatMap((block) =>
       (block.paragraphs || []).flatMap((paragraph) =>
         (paragraph.lines || []).map((line) => ({
@@ -580,9 +620,13 @@ export async function recognizeTimetableScreenshot(file, onProgress = () => {}) 
         }))
       )
     );
+    const blockWords = recognizedLines.flatMap((line) => line.words || []);
+    const tsvWords = wordsFromTsv(data.tsv);
     const rawWords = (data.words || []).length
       ? data.words
-      : recognizedLines.flatMap((line) => line.words || []);
+      : blockWords.length
+      ? blockWords
+      : tsvWords;
     const words = rawWords
       .filter((word) => word.text?.trim() && word.bbox)
       .map((word) => ({
@@ -633,9 +677,21 @@ export async function recognizeTimetableScreenshot(file, onProgress = () => {}) 
           bbox: line.bbox,
           words: [],
         }));
+    const fallbackLines = lines.length
+      ? lines
+      : rows.map((row) => ({
+          text: rowText(row),
+          bbox: {
+            x0: Math.min(...row.words.map((word) => word.bbox.x0)),
+            y0: Math.min(...row.words.map((word) => word.bbox.y0)),
+            x1: Math.max(...row.words.map((word) => word.bbox.x1)),
+            y1: Math.max(...row.words.map((word) => word.bbox.y1)),
+          },
+          words: row.words,
+        }));
     const fallback = [];
 
-    lines.forEach((line) => {
+    fallbackLines.forEach((line) => {
       const parts = line.text.split(/\s+/);
       const dayTokens = parts.map((part) => ({ part, day: dayForWord(part) })).filter((item) => item.day !== undefined);
       const timeTokens = parseTimes(line.text);
