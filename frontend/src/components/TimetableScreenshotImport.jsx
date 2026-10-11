@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { Check, FileImage, LoaderCircle, RotateCcw, Trash2, Upload, X } from "lucide-react";
 import { DAYS } from "../utils/timetable";
 import { recognizeTimetableScreenshot } from "../utils/timetableImageParser";
@@ -15,11 +15,6 @@ export default function TimetableScreenshotImport({
   const [error, setError] = useState("");
   const [reading, setReading] = useState(false);
   const [mode, setMode] = useState("merge");
-
-  useEffect(() => () => {
-    // OCR runs locally in this browser; only the OCR engine and English language
-    // model are fetched from their public CDNs.
-  }, []);
 
   const updateEntry = (id, field, value) => {
     setEntries((current) =>
