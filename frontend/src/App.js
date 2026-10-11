@@ -53,6 +53,7 @@ import Login from "./components/auth/login";
 import Signup from "./components/auth/signup";
 import { useAuth } from "./context/AuthContext";
 import { DAYS } from "./utils/timetable";
+import { areRecordsEqual, mergeOfflineCollection } from "./utils/offlineMerge";
 
 import "./App.css";
 
@@ -124,59 +125,6 @@ function isExamItem(item) {
   return /\b(exam|examination|midterm|finals?|quiz|viva|practical exam)\b/i.test(
     `${item?.title || ""} ${item?.description || ""}`
   );
-}
-
-function mergeOfflineCollection(cloudRecords, localRecords, baselineRecords) {
-  const baseline = new Map((Array.isArray(baselineRecords) ? baselineRecords : []).map((item) => [item.id, item]));
-  const local = new Map((Array.isArray(localRecords) ? localRecords : []).map((item) => [item.id, item]));
-  const cloud = new Map((Array.isArray(cloudRecords) ? cloudRecords : []).map((item) => [item.id, item]));
-  const allIds = new Set([...baseline.keys(), ...local.keys(), ...cloud.keys()]);
-  const merged = new Map();
-
-  allIds.forEach((id) => {
-    const hadBaseline = baseline.has(id);
-    const hasLocal = local.has(id);
-    const hasCloud = cloud.has(id);
-    const baselineRecord = baseline.get(id);
-    const localRecord = local.get(id);
-    const cloudRecord = cloud.get(id);
-
-    const localChanged =
-      hasLocal !== hadBaseline ||
-      (hasLocal && hadBaseline && !sameRecord(localRecord, baselineRecord));
-    // Preserve any local edit/deletion that differs from the last confirmed
-    // baseline. For untouched rows, the remote side wins, including deletions.
-    if (localChanged) {
-      if (hasLocal) merged.set(id, localRecord);
-      return;
-    }
-    if (hasCloud) merged.set(id, cloudRecord);
-  });
-
-  return [...merged.values()];
-}
-
-function stableValue(value) {
-  if (Array.isArray(value)) return value.map(stableValue);
-  if (value && typeof value === "object") {
-    return Object.keys(value).sort().reduce((result, key) => {
-      result[key] = stableValue(value[key]);
-      return result;
-    }, {});
-  }
-  return value;
-}
-
-function areRecordsEqual(left, right) {
-  if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
-    return false;
-  }
-
-  const normalize = (records) => records
-    .map(stableValue)
-    .sort((a, b) => String(a.id).localeCompare(String(b.id)));
-
-  return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
 }
 
 function getGreetingName(user) {
