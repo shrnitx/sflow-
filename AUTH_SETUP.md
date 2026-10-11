@@ -35,7 +35,9 @@ A publishable key is meant for frontend use. Never put a Supabase **secret** or 
 
 The weekly timetable has a **Choose screenshot** control. It accepts PNG, JPG/JPEG, and WEBP images up to 12 MB. OCR runs in the user's browser using Tesseract.js; the image itself is not uploaded to StudyFlow's database. The browser downloads the OCR JavaScript and English language model from public CDNs on first use, so an internet connection is required.
 
-Detected classes appear in an editable review list before anything changes. Users can add entries to the current timetable (exact duplicates are skipped) or choose to replace the existing timetable after a confirmation. Screenshot layouts vary, so the parsed day/subject/time values should be checked before import. For best results, use a sharp, full screenshot with weekday headings and clear time labels.
+The importer explicitly requests Tesseract.js v6 block output and extracts words and their coordinates from `data.blocks`; v6 no longer populates a top-level `data.words` array by default. It supports weekly grid layouts and the college-portal card layout where time ranges sit above course codes. For a screenshot showing just one selected weekday, choose that weekday once in the review form because the active tab cannot be reliably inferred from OCR text alone.
+
+Detected classes appear in an editable review list before anything changes. Users can add entries to the current timetable (exact duplicates are skipped) or choose to replace the timetable after a confirmation. Screenshot layouts vary, so the parsed day/subject/time values should be checked before import. For best results, use a sharp, full screenshot with weekday headings and clear time labels.
 
 ## Cloud data storage
 
