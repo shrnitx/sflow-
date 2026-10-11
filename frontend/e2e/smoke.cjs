@@ -62,7 +62,7 @@ function compactIcsDate(dateKey) {
 
 async function main() {
   const browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
-  const context = await browser.newContext({ acceptDownloads: true });
+  const context = await browser.newContext({ acceptDownloads: true, permissions: ["notifications"] });
   const page = await context.newPage();
 
   // CI uses a dummy Supabase project. Stub database requests so UI flows are
@@ -114,7 +114,7 @@ async function main() {
     await page.getByRole("button", { name: "Preview" }).click();
     await page.getByText("Assignment", { exact: true }).waitFor();
     await page.getByText("High", { exact: true }).waitFor();
-    await page.getByRole("button", { name: "Add task", exact: true }).click();
+    await page.locator(".quick-add-form button[type='submit']").click();
     await page.getByRole("heading", { name: "Assignment", exact: true }).waitFor();
     assert.equal(await quickInput.inputValue(), "");
     process.stdout.write("PASS: Quick Add preview, parsing and task creation\n");
