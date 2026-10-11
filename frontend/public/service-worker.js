@@ -83,13 +83,16 @@ self.addEventListener("fetch", (event) => {
   if (/\.(?:js|css|svg|png|jpg|jpeg|webp|woff2?)$/i.test(url.pathname)) {
     event.respondWith(
       caches.match(request).then((cached) => {
-        const network = fetch(request).then(async (response) => {
-          if (response && response.ok && response.type === "basic") {
-            await caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
-          }
-          return response;
-        });
-        return cached || network.catch(() => Response.error());
+        // Keep the network promise handled even when a cached response is available.
+        const network = fetch(request)
+          .then(async (response) => {
+            if (response && response.ok && response.type === "basic") {
+              await caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
+            }
+            return response;
+          })
+          .catch(() => null);
+        return cached || network.then((response) => response || Response.error());
       })
     );
   }
