@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   Check,
@@ -123,6 +123,25 @@ function isExamItem(item) {
   );
 }
 
+function mergeOfflineCollection(cloudRecords, localRecords, baselineRecords) {
+  const merged = new Map(
+    (Array.isArray(cloudRecords) ? cloudRecords : []).map((item) => [item.id, item])
+  );
+  const local = Array.isArray(localRecords) ? localRecords : [];
+  const localIds = new Set(local.map((item) => item.id));
+
+  // A record present in the local baseline but removed while offline is a
+  // deliberate local deletion. Do not resurrect it from the cloud snapshot.
+  (Array.isArray(baselineRecords) ? baselineRecords : []).forEach((item) => {
+    if (!localIds.has(item.id)) merged.delete(item.id);
+  });
+
+  // Local edits win for IDs cached before a failed first load, while remote-only
+  // records remain in the merged result. The normal cloud sync then reconciles it.
+  local.forEach((item) => merged.set(item.id, item));
+  return [...merged.values()];
+}
+
 function getGreetingName(user) {
   const metadata = user?.user_metadata || {};
   const name = String(metadata.name || metadata.full_name || metadata.fullName || "").trim();
@@ -144,6 +163,7 @@ function App() {
   const [showSignup, setShowSignup] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
   const [focusSessions, setFocusSessions] = useState([]);
+  const offlineLoadRef = useRef(null);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataLoadedFor, setDataLoadedFor] = useState(null);
   const [cloudReadyFor, setCloudReadyFor] = useState(null);
@@ -239,6 +259,14 @@ function App() {
         const cachedTimetable = loadUserTimetable(user.id);
         const cachedFocusSessions = loadUserFocusSessions(user.id);
 
+        const offlineBaseline = offlineLoadRef.current;
+        if (offlineBaseline?.userId === user.id) {
+          nextTasks = mergeOfflineCollection(nextTasks, cachedTasks, offlineBaseline.tasks);
+          nextTimetable = mergeOfflineCollection(nextTimetable, cachedTimetable, offlineBaseline.timetable);
+          nextFocusSessions = mergeOfflineCollection(nextFocusSessions, cachedFocusSessions, offlineBaseline.focusSessions);
+          offlineLoadRef.current = null;
+        }
+
         if (nextTasks.length === 0 && cachedTasks.length > 0) {
           await syncUserCollection("tasks", user.id, cachedTasks);
           nextTasks = cachedTasks;
@@ -310,9 +338,18 @@ function App() {
         if (cancelled) return;
 
         console.error("Failed to load StudyFlow cloud data:", error);
-        setTasks(loadUserTasks(user.id));
-        setTimetable(loadUserTimetable(user.id));
-        setFocusSessions(loadUserFocusSessions(user.id));
+        const cachedTasks = loadUserTasks(user.id);
+        const cachedTimetable = loadUserTimetable(user.id);
+        const cachedFocusSessions = loadUserFocusSessions(user.id);
+        offlineLoadRef.current = {
+          userId: user.id,
+          tasks: cachedTasks,
+          timetable: cachedTimetable,
+          focusSessions: cachedFocusSessions,
+        };
+        setTasks(cachedTasks);
+        setTimetable(cachedTimetable);
+        setFocusSessions(cachedFocusSessions);
         setDataLoadedFor(user.id);
         setDataSyncError(
           "Cloud data could not be loaded. Your account-specific browser cache is shown, but changes may not sync until the Supabase tables and permissions are configured."
