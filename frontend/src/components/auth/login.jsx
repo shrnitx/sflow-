@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import { getAuthErrorMessage } from "../../lib/authErrors";
 import "./auth.css";
+import StudyFlowHeroAnimation from "../StudyFlowHeroAnimation";
 
 export default function Login({ onShowSignup }) {
   const [email, setEmail] = useState("");
@@ -38,8 +39,18 @@ export default function Login({ onShowSignup }) {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
+    <div className="auth-page studyflow-auth-page">
+      <main className="studyflow-auth-layout">
+        <section className="studyflow-auth-showcase">
+          <div className="eyebrow">
+            <span className="eyebrow-dot" />
+            STUDENT PRODUCTIVITY
+          </div>
+          <h1>StudyFlow</h1>
+          <p>Plan classes, revise for exams and build consistent focus in one calm workspace.</p>
+          <StudyFlowHeroAnimation />
+        </section>
+        <div className="auth-card">
         <h1>Welcome Back</h1>
         <p>Login to continue to StudyFlow.</p>
 
@@ -82,7 +93,8 @@ export default function Login({ onShowSignup }) {
             Create account
           </button>
         </p>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }
