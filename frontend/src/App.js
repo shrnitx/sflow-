@@ -45,7 +45,6 @@ import ReminderSettings from "./components/ReminderSettings";
 import QuickAdd from "./components/QuickAdd";
 import ExamPrepPlanner from "./components/ExamPrepPlanner";
 import FocusMode from "./components/FocusMode";
-import { parseQuickEntry } from "./utils/quickAdd";
 
 import Login from "./components/auth/login";
 import Signup from "./components/auth/signup";
@@ -689,6 +688,8 @@ function App() {
             { id: "timetable", label: "Timetable", Icon: CalendarRange },
             { id: "tasks", label: "Tasks", Icon: ListChecks },
             { id: "exams", label: "Exams", Icon: GraduationCap },
+            { id: "focus", label: "Focus", Icon: Timer },
+            { id: "settings", label: "Settings", Icon: Settings },
           ].map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -808,11 +809,68 @@ function App() {
             timetable={timetable}
             setTimetable={setTimetable}
             setToast={setToast}
+            tasks={tasks}
+            onImportTasks={importCalendarTasks}
           />
+        )}
+
+        {activeSection === "focus" && (
+          <FocusMode
+            userId={user.id}
+            timetable={timetable}
+            tasks={tasks}
+            sessions={focusSessions}
+            setSessions={setFocusSessions}
+            onToast={setToast}
+          />
+        )}
+
+        {activeSection === "settings" && (
+          <section className="dashboard-settings-grid">
+            <ReminderSettings
+              userId={user.id}
+              timetable={timetable}
+              tasks={tasks}
+              onToast={setToast}
+            />
+            <section className="panel offline-settings-panel">
+              <div className="panel-heading">
+                <div>
+                  <span className="section-kicker">INSTALL & SYNC</span>
+                  <h2>Offline access</h2>
+                </div>
+              </div>
+              <p>StudyFlow saves an account-specific browser cache and queues cloud changes when connectivity returns. Install the app from your browser menu for easier access.</p>
+              <div className="offline-state-row">
+                <span className={navigator.onLine ? "offline-state-dot is-online" : "offline-state-dot"} />
+                <strong>{navigator.onLine ? "Internet connection available" : "Offline · browser cache in use"}</strong>
+              </div>
+              <button
+                type="button"
+                className="ghost-button"
+                onClick={() => setDataLoadAttempt((attempt) => attempt + 1)}
+              >
+                <RotateCcw size={16} /> Retry cloud sync
+              </button>
+              <p className="offline-settings-footnote">Offline access depends on a previous successful load in this browser. Push notifications while the app is fully closed require a separate push service.</p>
+            </section>
+          </section>
         )}
 
         {(activeSection === "tasks" || activeSection === "exams") && (
           <>
+        {activeSection === "tasks" && (
+          <QuickAdd timetable={timetable} onAdd={addQuickTask} onToast={setToast} />
+        )}
+
+        {activeSection === "exams" && (
+          <ExamPrepPlanner
+            exams={tasks.filter(isExamItem)}
+            onGenerate={generateExamPlan}
+            onToast={setToast}
+          />
+        )}
+
         <section className="stats-grid">
           <div className="stat-card">
             <div className="stat-icon">
