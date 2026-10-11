@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { getAuthErrorMessage } from "../../lib/authErrors";
 import "./auth.css";
 
 export default function Login({ onShowSignup }) {
@@ -8,8 +9,8 @@ export default function Login({ onShowSignup }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError("");
 
     if (!email.trim() || !password) {
@@ -19,16 +20,21 @@ export default function Login({ onShowSignup }) {
 
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    try {
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
 
-    if (error) {
-      setError(error.message);
+      if (loginError) {
+        setError(getAuthErrorMessage(loginError));
+      }
+      // AuthContext listens for Supabase's auth-state event and opens StudyFlow.
+    } catch (caughtError) {
+      setError(getAuthErrorMessage(caughtError));
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
@@ -37,7 +43,7 @@ export default function Login({ onShowSignup }) {
         <h1>Welcome Back</h1>
         <p>Login to continue to StudyFlow.</p>
 
-        {error && <div className="auth-error">{error}</div>}
+        {error && <div className="auth-error" role="alert" aria-live="polite">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="login-email">Email</label>
@@ -45,8 +51,9 @@ export default function Login({ onShowSignup }) {
             id="login-email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(event) => setEmail(event.target.value)}
             autoComplete="email"
+            autoCapitalize="none"
             required
           />
 
@@ -55,7 +62,7 @@ export default function Login({ onShowSignup }) {
             id="login-password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(event) => setPassword(event.target.value)}
             autoComplete="current-password"
             required
           />
