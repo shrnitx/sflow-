@@ -71,6 +71,7 @@ const EMPTY_FORM = {
   deadline: "",
   priority: "Medium",
   description: "",
+  classId: "",
 };
 
 function formatDeadline(value) {
@@ -480,6 +481,7 @@ function App() {
       type: activeSection === "exams" ? "exam" : "task",
       title: form.title.trim(),
       subject: form.subject,
+      classId: form.classId || "",
       deadline: form.deadline,
       priority: form.priority,
       description: form.description.trim(),
@@ -531,6 +533,7 @@ function App() {
       deadline: task.deadline || "",
       priority: task.priority || "Medium",
       description: task.description || "",
+      classId: task.classId || "",
     });
   };
 
@@ -567,6 +570,7 @@ function App() {
               deadline: editForm.deadline,
               priority: editForm.priority,
               description: editForm.description.trim(),
+              classId: editForm.classId || "",
             }
           : task
       )
@@ -581,6 +585,37 @@ function App() {
     setSearch("");
     setStatus("All");
     setPriority("All");
+  };
+
+  const addQuickTask = (entry) => {
+    const matchedClass = timetable.find((item) =>
+      entry.subject &&
+      [item.subject, item.courseCode].filter(Boolean)
+        .some((value) => value.toLowerCase() === entry.subject.toLowerCase())
+    );
+    const newTask = {
+      id: makeId(),
+      type: "task",
+      title: entry.title,
+      subject: entry.subject || matchedClass?.subject || "Other",
+      classId: matchedClass?.id || "",
+      deadline: entry.deadline || "",
+      priority: entry.priority || "Medium",
+      description: "",
+      completed: false,
+      createdAt: new Date().toISOString(),
+    };
+    setTasks((current) => [newTask, ...current]);
+  };
+
+  const importCalendarTasks = (items) => {
+    if (!Array.isArray(items) || !items.length) return;
+    setTasks((current) => [...items, ...current]);
+  };
+
+  const generateExamPlan = (items) => {
+    if (!Array.isArray(items) || !items.length) return;
+    setTasks((current) => [...items, ...current]);
   };
 
   const handleSignOut = async () => {
