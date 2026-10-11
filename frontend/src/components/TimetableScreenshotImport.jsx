@@ -15,6 +15,7 @@ export default function TimetableScreenshotImport({
   const [error, setError] = useState("");
   const [reading, setReading] = useState(false);
   const [mode, setMode] = useState("merge");
+  const [defaultDay, setDefaultDay] = useState("");
 
   const updateEntry = (id, field, value) => {
     setEntries((current) =>
@@ -29,6 +30,7 @@ export default function TimetableScreenshotImport({
 
     setFileName(file.name);
     setEntries([]);
+    setDefaultDay("");
     setError("");
     setProgress(0);
     setStatus("Preparing image reader");
@@ -67,15 +69,29 @@ export default function TimetableScreenshotImport({
   };
 
   const importEntries = () => {
-    const validEntries = entries.filter((entry) =>
-      entry.subject.trim() &&
-      Number.isInteger(Number(entry.day)) &&
-      Number(entry.day) >= 0 &&
-      Number(entry.day) <= 6 &&
-      /^\d{2}:\d{2}$/.test(entry.startTime) &&
-      /^\d{2}:\d{2}$/.test(entry.endTime) &&
-      entry.endTime > entry.startTime
+    const needsDefaultDay = entries.some(
+      (entry) => entry.day === null || entry.day === undefined
     );
+
+    if (needsDefaultDay && defaultDay === "") {
+      setError("This screenshot shows classes for one selected day. Choose that weekday before importing.");
+      return;
+    }
+
+    const validEntries = entries.filter((entry) => {
+      const day = entry.day === null || entry.day === undefined
+        ? defaultDay
+        : entry.day;
+      return (
+        entry.subject.trim() &&
+        Number.isInteger(Number(day)) &&
+        Number(day) >= 0 &&
+        Number(day) <= 6 &&
+        /^\d{2}:\d{2}$/.test(entry.startTime) &&
+        /^\d{2}:\d{2}$/.test(entry.endTime) &&
+        entry.endTime > entry.startTime
+      );
+    });
 
     if (!validEntries.length) {
       setError("There are no valid classes to import. Check the subject names and times.");
@@ -96,7 +112,11 @@ export default function TimetableScreenshotImport({
         delete cleanEntry.draftId;
         return {
           ...cleanEntry,
-          day: Number(entry.day),
+          day: Number(
+            entry.day === null || entry.day === undefined
+              ? defaultDay
+              : entry.day
+          ),
           subject: entry.subject.trim(),
         };
       }),
@@ -177,6 +197,28 @@ export default function TimetableScreenshotImport({
             </button>
           </div>
 
+          {entries.some((entry) => entry.day === null || entry.day === undefined) && (
+            <div className="field timetable-import-default-day">
+              <label htmlFor="timetable-import-default-day">
+                Which weekday is shown in this screenshot?
+              </label>
+              <select
+                id="timetable-import-default-day"
+                value={defaultDay}
+                onChange={(event) => {
+                  setDefaultDay(event.target.value);
+                  setError("");
+                }}
+              >
+                <option value="">Choose the displayed weekday...</option>
+                {DAYS.map((day, index) => (
+                  <option key={day} value={index}>{day}</option>
+                ))}
+              </select>
+              <p>The screenshot shows one selected day rather than a full-week grid. Choose it once to apply it to these classes.</p>
+            </div>
+          )}
+
           <div className="timetable-import-mode">
             <label>
               <input
@@ -216,9 +258,16 @@ export default function TimetableScreenshotImport({
                   <label htmlFor={"import-day-" + entry.draftId}>Day</label>
                   <select
                     id={"import-day-" + entry.draftId}
-                    value={entry.day}
-                    onChange={(event) => updateEntry(entry.draftId, "day", Number(event.target.value))}
+                    value={entry.day === null || entry.day === undefined ? defaultDay : entry.day}
+                    onChange={(event) => updateEntry(
+                      entry.draftId,
+                      "day",
+                      event.target.value === "" ? null : Number(event.target.value)
+                    )}
                   >
+                    {(entry.day === null || entry.day === undefined) && (
+                      <option value="">Use weekday above</option>
+                    )}
                     {DAYS.map((day, index) => (
                       <option key={day} value={index}>{day}</option>
                     ))}
