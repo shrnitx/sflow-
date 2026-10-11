@@ -980,6 +980,22 @@ function App() {
             </div>
 
             <div className="field">
+              <label htmlFor="task-class-link">Linked class <span>(optional)</span></label>
+              <select
+                id="task-class-link"
+                value={form.classId || ""}
+                onChange={(event) => setField("classId", event.target.value)}
+              >
+                <option value="">No linked class</option>
+                {timetable.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {(item.courseCode ? item.courseCode + " · " : "") + item.subject + " · " + DAYS[item.day]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
               <label htmlFor="deadline">{activeSection === "exams" ? "Exam date" : "Deadline"}</label>
 
               <input
@@ -1365,6 +1381,22 @@ function App() {
                   {SUBJECTS.map((subject) => (
                     <option key={subject} value={subject}>
                       {subject}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field">
+                <label htmlFor="edit-class-link">Linked class</label>
+                <select
+                  id="edit-class-link"
+                  value={editForm.classId || ""}
+                  onChange={(event) => setEditForm((current) => ({ ...current, classId: event.target.value }))}
+                >
+                  <option value="">No linked class</option>
+                  {timetable.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {(item.courseCode ? item.courseCode + " · " : "") + item.subject + " · " + DAYS[item.day]}
                     </option>
                   ))}
                 </select>
