@@ -234,7 +234,7 @@ async function main() {
     await page.getByRole("button", { name: "Play music", exact: true }).click();
     const youtubeFrame = page.locator(".study-music-player-frame.youtube iframe");
     await youtubeFrame.waitFor();
-    assert.ok((await youtubeFrame.getAttribute("src")).includes("X4VbdwhkE10"));
+    assert.ok((await youtubeFrame.getAttribute("src")).includes("EWrX250Zhko"));
     await page.getByRole("button", { name: "Spotify playlist", exact: true }).click();
     await page.locator(".study-music-player-frame").waitFor({ state: "detached" });
     await page.getByRole("button", { name: "Load playlist", exact: true }).click();
