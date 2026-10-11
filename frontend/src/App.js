@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
+  BrainCircuit,
   Check,
   CheckCircle2,
   Clock3,
@@ -54,6 +55,9 @@ import Signup from "./components/auth/signup";
 import { useAuth } from "./context/AuthContext";
 import { DAYS } from "./utils/timetable";
 import { areRecordsEqual, mergeOfflineCollection } from "./utils/offlineMerge";
+import StudyFlowHeroAnimation from "./components/StudyFlowHeroAnimation";
+import StudyFlowWorkspace from "./components/StudyFlowWorkspace";
+import StudyMusicPlayer from "./components/StudyMusicPlayer";
 
 import "./App.css";
 
@@ -770,6 +774,8 @@ function App() {
             </p>
           </div>
 
+          <StudyFlowHeroAnimation tasks={tasks.filter((task) => !isExamItem(task))} />
+
           <div className="hero-actions">
             <span className="account-email" title={user.email || "Signed in"}>
               {user.email || "Signed in"}
@@ -800,6 +806,7 @@ function App() {
             { id: "tasks", label: "Tasks", Icon: ListChecks },
             { id: "exams", label: "Exams", Icon: GraduationCap },
             { id: "focus", label: "Focus", Icon: Timer },
+            { id: "studycoach", label: "Study Coach", Icon: BrainCircuit },
             { id: "settings", label: "Settings", Icon: Settings },
           ].map(({ id, label, Icon }) => (
             <button
@@ -834,6 +841,19 @@ function App() {
           onToast={setToast}
           visible={activeSection === "focus"}
         />
+
+        {activeSection === "focus" && <StudyMusicPlayer />}
+
+        {activeSection === "studycoach" && (
+          <StudyFlowWorkspace
+            key={user.id}
+            user={user}
+            tasks={tasks}
+            setTasks={setTasks}
+            timetable={timetable}
+            setToast={setToast}
+          />
+        )}
 
         {activeSection !== "home" && dataSyncError && (
           <div className="cloud-sync-warning" role="alert">
