@@ -509,7 +509,7 @@ function App() {
     );
   }
 
-  if (dataLoading) {
+  if (dataLoading || dataLoadedFor !== user.id) {
     return <div className="app-loading">Loading your StudyFlow data...</div>;
   }
 
