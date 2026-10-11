@@ -1,4 +1,4 @@
-import { buildDailyPlan, createAssistantReply, dateKey, durationFor, sortPending } from "./studyFlowLogic";
+import { buildDailyPlan, createAssistantReply, dateKey, durationFor, sortPending, studySessionDate } from "./studyFlowLogic";
 
 function task(id, overrides = {}) {
   return { id, title: id, completed: false, priority: "Medium", deadline: "", ...overrides };
@@ -66,4 +66,12 @@ describe("StudyFlow planning logic", () => {
     expect(reply).toContain("40 minutes");
     expect(reply).toContain("2 session(s)");
   });
+  test("normalizes focus sessions written by both timer versions", () => {
+    expect(studySessionDate({ date: "2026-10-11" })).toBe("2026-10-11");
+    expect(studySessionDate({ localDate: "2026-10-10" })).toBe("2026-10-10");
+    const startedAt = new Date(2026, 9, 9, 12, 0, 0).toISOString();
+    expect(studySessionDate({ startedAt })).toBe(dateKey(new Date(startedAt)));
+    expect(studySessionDate({ id: "unknown-session" })).toBe("");
+  });
+
 });
