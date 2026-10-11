@@ -283,6 +283,128 @@ function extractGridTimetable(rows) {
   return result;
 }
 
+function clusterTimeTokens(tokens, threshold) {
+  const sorted = [...tokens].sort((a, b) => a.x - b.x);
+  const clusters = [];
+
+  sorted.forEach((token) => {
+    let cluster = clusters[clusters.length - 1];
+    const lastToken = cluster?.tokens[cluster.tokens.length - 1];
+
+    if (!cluster || token.x - lastToken.x > threshold) {
+      cluster = { tokens: [] };
+      clusters.push(cluster);
+    }
+
+    cluster.tokens.push(token);
+  });
+
+  return clusters.map((cluster) => ({
+    x: cluster.tokens.reduce((sum, token) => sum + token.x, 0) / cluster.tokens.length,
+    times: cluster.tokens.map((token) => token.minutes),
+  }));
+}
+
+// Some college timetables put weekdays down the left and periods across the top.
+// Read that transposed layout separately from the day-columns layout above.
+function extractTransposedTimetable(rows) {
+  const candidateRows = rows.map((row) => {
+    const tokens = row.words.flatMap((word) =>
+      parseTimes(word.text).map((time) => ({
+        ...time,
+        x: centerX(word),
+        height: word.bbox.y1 - word.bbox.y0,
+      }))
+    );
+    const threshold = Math.max(34, median(tokens.map((token) => token.height)) * 3.5);
+    const columns = clusterTimeTokens(tokens, threshold);
+    return { row, tokens, columns };
+  });
+
+  const header = candidateRows
+    .filter((candidate) => candidate.columns.length >= 2)
+    .sort((a, b) => a.row.y - b.row.y)[0];
+
+  if (!header) return [];
+
+  const timeColumns = header.columns
+    .map((column) => ({
+      x: column.x,
+      start: column.times[0],
+      end: column.times.length >= 2 && column.times[1] > column.times[0]
+        ? column.times[1]
+        : null,
+    }))
+    .filter((column) => column.start !== undefined)
+    .sort((a, b) => a.x - b.x);
+
+  if (timeColumns.length < 2) return [];
+
+  const dayRows = rows
+    .filter((row) => row.y > header.row.y + 4)
+    .map((row) => {
+      const dayWords = row.words
+        .map((word) => ({ word, day: dayForWord(word.text) }))
+        .filter((item) => item.day !== undefined);
+      const uniqueDays = [...new Set(dayWords.map((item) => item.day))];
+      return { row, dayWords, uniqueDays };
+    })
+    .filter((item) => item.uniqueDays.length === 1);
+
+  if (dayRows.length === 0) return [];
+
+  const gaps = timeColumns.slice(1).map((column, index) => column.x - timeColumns[index].x);
+  const typicalGap = median(gaps.filter((gap) => gap > 0));
+  const firstBoundary = timeColumns[0].x - Math.max(22, typicalGap * 0.46);
+  const result = [];
+
+  dayRows.forEach(({ row, dayWords, uniqueDays }) => {
+    const day = uniqueDays[0];
+    const dayWordSet = new Set(dayWords.map((item) => item.word));
+    const subjectWords = row.words.filter((word) => !dayWordSet.has(word));
+
+    timeColumns.forEach((column, index) => {
+      const left = index === 0
+        ? firstBoundary
+        : (timeColumns[index - 1].x + column.x) / 2;
+      const right = index === timeColumns.length - 1
+        ? column.x + typicalGap * 0.55
+        : (column.x + timeColumns[index + 1].x) / 2;
+      const cellWords = subjectWords.filter((word) => {
+        const x = centerX(word);
+        return x >= left && x < right;
+      });
+      const subject = cleanSubject(cellWords);
+      if (!subject) return;
+
+      const nextColumn = timeColumns[index + 1];
+      const end = column.end && column.end > column.start
+        ? column.end
+        : nextColumn && nextColumn.start > column.start
+        ? nextColumn.start
+        : column.start + 50;
+
+      result.push({
+        day,
+        subject,
+        startTime: formatClock(column.start),
+        endTime: formatClock(end),
+        recurring: true,
+      });
+    });
+  });
+
+  const unique = new Map();
+  result.forEach((entry) => {
+    const key = [entry.day, entry.startTime, entry.endTime, entry.subject.toLowerCase()].join("|");
+    if (!unique.has(key)) unique.set(key, entry);
+  });
+
+  return [...unique.values()].sort((a, b) =>
+    a.day - b.day || a.startTime.localeCompare(b.startTime)
+  );
+}
+
 export async function recognizeTimetableScreenshot(file, onProgress = () => {}) {
   if (!file || !["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
     throw new Error("Choose a timetable screenshot in PNG, JPG, or WEBP format.");
@@ -318,10 +440,12 @@ export async function recognizeTimetableScreenshot(file, onProgress = () => {}) 
 
     const rows = groupWordsIntoRows(words);
     const gridEntries = extractGridTimetable(rows);
+    const transposedEntries = gridEntries.length ? [] : extractTransposedTimetable(rows);
+    const structuredEntries = gridEntries.length ? gridEntries : transposedEntries;
 
-    if (gridEntries.length) {
+    if (structuredEntries.length) {
       const unique = new Map();
-      gridEntries.forEach((entry) => {
+      structuredEntries.forEach((entry) => {
         const key = [entry.day, entry.startTime, entry.endTime, entry.subject.toLowerCase()].join("|");
         if (!unique.has(key)) unique.set(key, entry);
       });
