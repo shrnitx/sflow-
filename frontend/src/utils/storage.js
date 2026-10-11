@@ -60,6 +60,45 @@ export const loadUserTimetable = (userId) =>
 export const saveUserTimetable = (userId, timetable) =>
   writeArray(userKey(TIMETABLE_STORAGE_KEY, userId), timetable);
 
+const FOCUS_STORAGE_KEY = "studyflow.focus-sessions.v1";
+
+const isFocusSession = (item) =>
+  item &&
+  typeof item === "object" &&
+  typeof item.id === "string" &&
+  typeof item.startedAt === "string" &&
+  Number.isFinite(Number(item.durationMinutes)) &&
+  Number(item.durationMinutes) > 0;
+
+export const loadUserFocusSessions = (userId) =>
+  readArray(userKey(FOCUS_STORAGE_KEY, userId), isFocusSession);
+
+export const saveUserFocusSessions = (userId, sessions) =>
+  writeArray(userKey(FOCUS_STORAGE_KEY, userId), sessions);
+
+const settingsKey = (userId) => `studyflow.settings.user.${encodeURIComponent(userId)}`;
+
+export const loadUserSettings = (userId) => {
+  try {
+    const value = localStorage.getItem(settingsKey(userId));
+    const parsed = value ? JSON.parse(value) : null;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed
+      : {};
+  } catch (error) {
+    console.warn("Failed to read StudyFlow settings:", error);
+    return {};
+  }
+};
+
+export const saveUserSettings = (userId, settings) => {
+  try {
+    localStorage.setItem(settingsKey(userId), JSON.stringify(settings || {}));
+  } catch (error) {
+    console.warn("Failed to save StudyFlow settings:", error);
+  }
+};
+
 export const wasLegacyMigrationReviewed = () => {
   try {
     return localStorage.getItem(LEGACY_REVIEWED_KEY) === "true";
