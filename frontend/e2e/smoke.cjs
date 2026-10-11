@@ -219,18 +219,22 @@ async function main() {
     await page.getByRole("heading", { name: "Submit imported report", exact: true }).waitFor();
     process.stdout.write("PASS: calendar import creates recurring classes and dated tasks\n");
 
-    await page.getByRole("button", { name: "Focus", exact: true }).click();
-    await page.getByRole("button", { name: "Start focus" }).click();
-    await page.getByRole("button", { name: "Pause session" }).waitFor();
-    await page.getByRole("button", { name: "Pause session" }).click();
-    await page.getByRole("button", { name: "Resume session" }).waitFor();
-    await page.getByRole("button", { name: "Reset timer" }).click();
-    process.stdout.write("PASS: focus timer start, pause, resume and reset\n");
+    await page.getByRole("button", { name: "Study Lab", exact: true }).click();
+    await page.getByRole("heading", { name: "One thing at a time.", exact: true }).waitFor();
+    process.stdout.write("PASS: Study Lab workspace opens\n");
+
+    const workspaceTimer = page.locator(".sfw-button-row");
+    await workspaceTimer.getByRole("button", { name: "Start focus", exact: true }).click();
+    await workspaceTimer.getByRole("button", { name: "Pause", exact: true }).waitFor();
+    await workspaceTimer.getByRole("button", { name: "Pause", exact: true }).click();
+    await workspaceTimer.getByRole("button", { name: "Resume", exact: true }).waitFor();
+    await workspaceTimer.getByRole("button", { name: "Reset", exact: true }).click();
+    process.stdout.write("PASS: task-linked focus timer start, pause, resume and reset\n");
 
     await page.getByRole("button", { name: "Play music", exact: true }).click();
     const youtubeFrame = page.locator(".study-music-player-frame.youtube iframe");
     await youtubeFrame.waitFor();
-    assert.ok((await youtubeFrame.getAttribute("src")).includes("EWrX250Zhko"));
+    assert.ok((await youtubeFrame.getAttribute("src")).includes("X4VbdwhkE10"));
     await page.getByRole("button", { name: "Spotify playlist", exact: true }).click();
     await page.locator(".study-music-player-frame").waitFor({ state: "detached" });
     await page.getByRole("button", { name: "Load playlist", exact: true }).click();
@@ -241,44 +245,41 @@ async function main() {
     await page.locator(".study-music-player-frame").waitFor({ state: "detached" });
     process.stdout.write("PASS: YouTube/Spotify player switching and stop behavior\n");
 
-    await page.getByRole("button", { name: "Study Coach", exact: true }).click();
-    await page.getByRole("heading", { name: "One thing at a time.", exact: true }).waitFor();
-    process.stdout.write("PASS: Study Coach workspace opens\n");
-
     await page.getByRole("button", { name: "Daily plan", exact: true }).click();
     await page.getByRole("button", { name: "Build my day", exact: true }).click();
     await page.locator(".sfw-body .sfw-plan-list, .sfw-body .sfw-empty-large").waitFor();
-    process.stdout.write("PASS: Study Coach daily-plan generation\n");
+    process.stdout.write("PASS: Study Lab daily-plan generation\n");
 
     await page.getByRole("button", { name: "Exams & syllabus", exact: true }).click();
-    await page.getByPlaceholder("e.g. Physics mid-sem").fill("Study Coach Biology Exam");
+    await page.getByPlaceholder("e.g. Physics mid-sem").fill("Study Lab Biology Exam");
     await page.getByLabel("Exam date").fill(futureDate(20));
     await page.getByRole("button", { name: "Save exam", exact: true }).click();
-    await page.getByText("Study Coach Biology Exam", { exact: true }).waitFor();
+    await page.getByText("Study Lab Biology Exam", { exact: true }).waitFor();
+
+    // Study Lab exams must appear in the same dashboard Exams list, not in a
+    // second isolated collection.
+    await page.getByRole("button", { name: "Exams", exact: true }).click();
+    await page.getByRole("heading", { name: "Study Lab Biology Exam", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Study Lab", exact: true }).click();
+    await page.getByRole("button", { name: "Exams & syllabus", exact: true }).click();
+
     await page.getByPlaceholder("e.g. Chemistry").fill("Biology");
     await page.getByPlaceholder("e.g. Chemical kinetics").fill("Cell division review");
     await page.getByRole("button", { name: "Add topic", exact: true }).click();
     await page.getByText("Cell division review", { exact: true }).waitFor();
-    process.stdout.write("PASS: Study Coach exam and spaced-syllabus setup\n");
+    process.stdout.write("PASS: Study Lab exam sync and spaced-syllabus setup\n");
 
     await page.getByRole("button", { name: "Assistant", exact: true }).click();
     await page.locator("#sfw-question").fill("Help me prepare for my next exam.");
     await page.getByRole("button", { name: "Ask", exact: true }).click();
     await page.locator(".sfw-chat-msg.is-assistant").last().waitFor();
-    process.stdout.write("PASS: Study Coach assistant uses saved study context\n");
+    process.stdout.write("PASS: Study Lab assistant uses saved study context\n");
 
     await page.getByRole("button", { name: "Reminders", exact: true }).click();
     await page.locator("#sfw-reminder-time").fill("10:15");
     await page.getByRole("button", { name: "Analytics", exact: true }).click();
     await page.getByRole("heading", { name: "Your study week, in facts.", exact: true }).waitFor();
-    process.stdout.write("PASS: Study Coach reminders and analytics tabs\n");
-
-    await page.getByRole("button", { name: "Focus", exact: true }).last().click();
-    const coachTimerButtons = page.locator(".sfw-button-row");
-    await coachTimerButtons.getByRole("button", { name: "Start focus", exact: true }).click();
-    await coachTimerButtons.getByRole("button", { name: "Pause", exact: true }).click();
-    await coachTimerButtons.getByRole("button", { name: "Reset", exact: true }).click();
-    process.stdout.write("PASS: Study Coach task-linked focus timer controls\n");
+    process.stdout.write("PASS: Study Lab reminder and analytics tabs\n");
 
     await page.getByRole("button", { name: "Settings", exact: true }).click();
     await page.getByLabel("Enable quiet hours").check();
