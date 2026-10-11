@@ -211,7 +211,10 @@ async function main() {
       mimeType: "text/calendar",
       buffer: Buffer.from(importedIcs),
     });
-    await page.getByText("Genome Analysis", { exact: true }).waitFor();
+    const importedClassRow = page.locator(".weekly-timetable .timetable-entry-subject strong")
+      .filter({ hasText: "Genome Analysis" });
+    await importedClassRow.waitFor();
+    assert.match(await importedClassRow.innerText(), /BIO456.*Genome Analysis/);
     await page.getByRole("button", { name: "Tasks", exact: true }).click();
     await page.getByRole("heading", { name: "Submit imported report", exact: true }).waitFor();
     process.stdout.write("PASS: calendar import creates recurring classes and dated tasks\n");
