@@ -20,6 +20,10 @@ create table if not exists public.studyflow_timetable (
 alter table public.studyflow_tasks enable row level security;
 alter table public.studyflow_timetable enable row level security;
 
+-- Remove any broad table grants before granting access to signed-in users only.
+revoke all on public.studyflow_tasks from anon, public;
+revoke all on public.studyflow_timetable from anon, public;
+
 grant select, insert, update, delete on public.studyflow_tasks to authenticated;
 grant select, insert, update, delete on public.studyflow_timetable to authenticated;
 
