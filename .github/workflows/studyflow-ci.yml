@@ -36,8 +36,19 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Validate PWA shell assets
+        run: |
+          node --check public/service-worker.js
+          node -e "JSON.parse(require('fs').readFileSync('public/manifest.json', 'utf8'))"
+
       - name: Run unit tests
         run: npm test -- --watchAll=false
 
       - name: Build production bundle
         run: npm run build
+
+      - name: Verify PWA assets in production bundle
+        run: |
+          test -s build/manifest.json
+          test -s build/service-worker.js
+          test -s build/studyflow-icon.svg
