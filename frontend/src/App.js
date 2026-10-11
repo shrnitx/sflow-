@@ -939,6 +939,7 @@ function App() {
             setToast={setToast}
             tasks={tasks}
             onImportTasks={importCalendarTasks}
+            onSelectClass={setSelectedClass}
           />
         )}
 
