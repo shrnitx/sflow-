@@ -29,6 +29,8 @@ import {
   saveUserTimetable,
   loadUserFocusSessions,
   saveUserFocusSessions,
+  loadUserCloudBaseline,
+  saveUserCloudBaseline,
   wasLegacyMigrationReviewed,
   markLegacyMigrationReviewed,
   makeId,
@@ -143,6 +145,30 @@ function mergeOfflineCollection(cloudRecords, localRecords, baselineRecords) {
   return [...merged.values()];
 }
 
+
+function stableValue(value) {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === "object") {
+    return Object.keys(value).sort().reduce((result, key) => {
+      result[key] = stableValue(value[key]);
+      return result;
+    }, {});
+  }
+  return value;
+}
+
+function areRecordsEqual(left, right) {
+  if (!Array.isArray(left) || !Array.isArray(right) || left.length !== right.length) {
+    return false;
+  }
+
+  const normalize = (records) => records
+    .map(stableValue)
+    .sort((a, b) => String(a.id).localeCompare(String(b.id)));
+
+  return JSON.stringify(normalize(left)) === JSON.stringify(normalize(right));
+}
+
 function getGreetingName(user) {
   const metadata = user?.user_metadata || {};
   const name = String(metadata.name || metadata.full_name || metadata.fullName || "").trim();
@@ -203,6 +229,9 @@ function App() {
 
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
+
+  const currentCollectionsRef = useRef({ tasks, timetable, focusSessions });
+  currentCollectionsRef.current = { tasks, timetable, focusSessions };
 
   useEffect(() => {
     setActiveSection("home");
@@ -271,13 +300,28 @@ function App() {
         const cachedTimetable = loadUserTimetable(user.id);
         const cachedFocusSessions = loadUserFocusSessions(user.id);
 
-        const offlineBaseline = offlineLoadRef.current;
-        if (offlineBaseline?.userId === user.id) {
-          nextTasks = mergeOfflineCollection(nextTasks, cachedTasks, offlineBaseline.tasks);
-          nextTimetable = mergeOfflineCollection(nextTimetable, cachedTimetable, offlineBaseline.timetable);
-          nextFocusSessions = mergeOfflineCollection(nextFocusSessions, cachedFocusSessions, offlineBaseline.focusSessions);
-          offlineLoadRef.current = null;
+        // Compare this browser cache with the last confirmed cloud snapshot.
+        // Only merge local data when it actually changed since that snapshot.
+        // Otherwise the cloud wins, so deletions/edits from another device aren't
+        // undone by simply opening an older browser cache.
+        const savedBaseline = loadUserCloudBaseline(user.id);
+        const failedLoadSnapshot = offlineLoadRef.current?.userId === user.id
+          ? offlineLoadRef.current
+          : null;
+        const offlineBaseline = savedBaseline || failedLoadSnapshot;
+
+        if (offlineBaseline) {
+          if (!areRecordsEqual(cachedTasks, offlineBaseline.tasks)) {
+            nextTasks = mergeOfflineCollection(nextTasks, cachedTasks, offlineBaseline.tasks);
+          }
+          if (!areRecordsEqual(cachedTimetable, offlineBaseline.timetable)) {
+            nextTimetable = mergeOfflineCollection(nextTimetable, cachedTimetable, offlineBaseline.timetable);
+          }
+          if (!areRecordsEqual(cachedFocusSessions, offlineBaseline.focusSessions)) {
+            nextFocusSessions = mergeOfflineCollection(nextFocusSessions, cachedFocusSessions, offlineBaseline.focusSessions);
+          }
         }
+        offlineLoadRef.current = null;
 
         if (nextTasks.length === 0 && cachedTasks.length > 0) {
           await syncUserCollection("tasks", user.id, cachedTasks);
@@ -397,6 +441,17 @@ function App() {
           syncUserCollection("timetable", user.id, timetable),
           syncUserCollection("focusSessions", user.id, focusSessions),
         ]);
+
+        // Don't mark an older in-flight snapshot as the baseline if state changed
+        // while its writes were running. The newer effect will establish it later.
+        const latest = currentCollectionsRef.current;
+        if (
+          areRecordsEqual(tasks, latest.tasks) &&
+          areRecordsEqual(timetable, latest.timetable) &&
+          areRecordsEqual(focusSessions, latest.focusSessions)
+        ) {
+          saveUserCloudBaseline(user.id, { tasks, timetable, focusSessions });
+        }
         setDataSyncError("");
       } catch (error) {
         console.error("StudyFlow cloud sync failed:", error);
