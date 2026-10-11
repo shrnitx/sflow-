@@ -18,6 +18,7 @@ function FocusMode({ timetable, tasks, sessions, setSessions, onToast, visible =
   const startedRef = useRef(false);
   const loggedRef = useRef(false);
   const startTimestampRef = useRef(null);
+  const endAtRef = useRef(null);
 
   const subjects = useMemo(() => {
     return [...new Set([
@@ -28,16 +29,24 @@ function FocusMode({ timetable, tasks, sessions, setSessions, onToast, visible =
 
   useEffect(() => {
     if (!running) return undefined;
-    const timer = window.setInterval(() => {
-      setRemainingSeconds((current) => {
-        if (current <= 1) {
-          window.clearInterval(timer);
-          setRunning(false);
-          return 0;
-        }
-        return current - 1;
-      });
-    }, 1000);
+
+    const tick = () => {
+      const endAt = endAtRef.current;
+      if (!endAt) return;
+
+      // Use a wall-clock deadline instead of subtracting one per interval.
+      // Background tabs and sleeping laptops throttle JavaScript timers.
+      const secondsLeft = Math.max(0, Math.ceil((endAt - Date.now()) / 1000));
+      setRemainingSeconds(secondsLeft);
+
+      if (secondsLeft === 0) {
+        endAtRef.current = null;
+        setRunning(false);
+      }
+    };
+
+    tick();
+    const timer = window.setInterval(tick, 250);
     return () => window.clearInterval(timer);
   }, [running]);
 
@@ -68,8 +77,12 @@ function FocusMode({ timetable, tasks, sessions, setSessions, onToast, visible =
   }, [durationMinutes, running, remainingSeconds]); // changing the duration resets an idle timer
 
   const start = () => {
+    const secondsToRun = remainingSeconds <= 0
+      ? Number(durationMinutes) * 60
+      : remainingSeconds;
+
     if (remainingSeconds <= 0) {
-      setRemainingSeconds(Number(durationMinutes) * 60);
+      setRemainingSeconds(secondsToRun);
       loggedRef.current = false;
     }
     if (!startedRef.current) {
@@ -77,12 +90,21 @@ function FocusMode({ timetable, tasks, sessions, setSessions, onToast, visible =
       loggedRef.current = false;
       startTimestampRef.current = new Date().toISOString();
     }
+
+    endAtRef.current = Date.now() + secondsToRun * 1000;
     setRunning(true);
   };
 
-  const pause = () => setRunning(false);
+  const pause = () => {
+    if (endAtRef.current) {
+      setRemainingSeconds(Math.max(0, Math.ceil((endAtRef.current - Date.now()) / 1000)));
+    }
+    endAtRef.current = null;
+    setRunning(false);
+  };
 
   const reset = () => {
+    endAtRef.current = null;
     setRunning(false);
     startedRef.current = false;
     loggedRef.current = false;
