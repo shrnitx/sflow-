@@ -1,15 +1,45 @@
 const CACHE_NAME = "studyflow-shell-v1";
 const CORE_ASSETS = ["/", "/index.html", "/manifest.json", "/studyflow-icon.svg"];
 
+async function prepareOfflineShell() {
+  const cache = await caches.open(CACHE_NAME);
+  await Promise.all(
+    CORE_ASSETS.map((asset) =>
+      cache.add(asset).catch((error) => {
+        console.warn("StudyFlow could not pre-cache " + asset, error);
+      })
+    )
+  );
+
+  // CRA emits hashed JS/CSS names at build time. Discover and cache those exact
+  // URLs during install so the first visit can work offline after one online load.
+  try {
+    const response = await fetch("/index.html", { cache: "no-store" });
+    if (!response.ok) return;
+    const html = await response.text();
+    await cache.put("/index.html", new Response(html, {
+      headers: { "Content-Type": "text/html; charset=utf-8" },
+    }));
+
+    const urls = [...html.matchAll(/(?:src|href)=["']([^"']+\.(?:js|css)(?:\?[^"']*)?)["']/gi)]
+      .map((match) => match[1])
+      .filter((value) => value.startsWith("/") && !value.startsWith("//"));
+
+    await Promise.all(
+      [...new Set(urls)].map((asset) =>
+        cache.add(asset).catch((error) => {
+          console.warn("StudyFlow could not pre-cache app asset " + asset, error);
+        })
+      )
+    );
+  } catch (error) {
+    console.warn("StudyFlow could not discover offline build assets.", error);
+  }
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(CORE_ASSETS))
-      .catch((error) => {
-        // Installation should still succeed if one optional shell asset is unavailable.
-        console.warn("StudyFlow offline shell cache was only partially prepared.", error);
-      })
-      .then(() => self.skipWaiting())
+    prepareOfflineShell().then(() => self.skipWaiting())
   );
 });
 
@@ -36,10 +66,9 @@ self.addEventListener("fetch", (event) => {
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
-        .then((response) => {
+        .then(async (response) => {
           if (response && response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put("/index.html", copy));
+            await caches.open(CACHE_NAME).then((cache) => cache.put("/index.html", response.clone()));
           }
           return response;
         })
@@ -51,15 +80,12 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Cache app assets after the first successful fetch. Hashed build filenames
-  // ensure new deploys get distinct cache entries instead of stale code.
   if (/\.(?:js|css|svg|png|jpg|jpeg|webp|woff2?)$/i.test(url.pathname)) {
     event.respondWith(
       caches.match(request).then((cached) => {
-        const network = fetch(request).then((response) => {
+        const network = fetch(request).then(async (response) => {
           if (response && response.ok && response.type === "basic") {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+            await caches.open(CACHE_NAME).then((cache) => cache.put(request, response.clone()));
           }
           return response;
         });
