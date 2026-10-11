@@ -1,72 +1,78 @@
 const STORAGE_KEY = "studyflow.tasks.v1";
 const TIMETABLE_STORAGE_KEY = "studyflow.timetable.v1";
+const LEGACY_REVIEWED_KEY = "studyflow.legacy-migration-reviewed.v1";
 
-export const loadTasks = () => {
+const isTask = (item) =>
+  item &&
+  typeof item === "object" &&
+  typeof item.id === "string" &&
+  typeof item.title === "string";
+
+const isTimetableEntry = (item) =>
+  item &&
+  typeof item === "object" &&
+  typeof item.id === "string" &&
+  typeof item.subject === "string" &&
+  Number.isInteger(item.day) &&
+  item.day >= 0 &&
+  item.day <= 6 &&
+  typeof item.startTime === "string" &&
+  typeof item.endTime === "string";
+
+const readArray = (key, validator) => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) return [];
-
     const parsed = JSON.parse(raw);
-
     if (!Array.isArray(parsed)) return [];
-
-    return parsed.filter(
-      (t) =>
-        t &&
-        typeof t === "object" &&
-        typeof t.id === "string" &&
-        typeof t.title === "string"
-    );
+    return parsed.filter(validator);
   } catch (err) {
-    console.warn("Failed to read tasks from localStorage:", err);
+    console.warn(`Failed to read ${key} from localStorage:`, err);
     return [];
   }
 };
 
-export const saveTasks = (tasks) => {
+const writeArray = (key, records) => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+    localStorage.setItem(key, JSON.stringify(Array.isArray(records) ? records : []));
   } catch (err) {
-    console.warn("Failed to save tasks:", err);
+    console.warn(`Failed to save ${key}:`, err);
   }
 };
 
-export const loadTimetable = () => {
+// Legacy, browser-global keys are kept only as a one-time migration source.
+export const loadTasks = () => readArray(STORAGE_KEY, isTask);
+export const saveTasks = (tasks) => writeArray(STORAGE_KEY, tasks);
+export const loadTimetable = () => readArray(TIMETABLE_STORAGE_KEY, isTimetableEntry);
+export const saveTimetable = (timetable) => writeArray(TIMETABLE_STORAGE_KEY, timetable);
+
+const userKey = (key, userId) => `${key}.user.${encodeURIComponent(userId)}`;
+
+export const loadUserTasks = (userId) =>
+  readArray(userKey(STORAGE_KEY, userId), isTask);
+
+export const saveUserTasks = (userId, tasks) =>
+  writeArray(userKey(STORAGE_KEY, userId), tasks);
+
+export const loadUserTimetable = (userId) =>
+  readArray(userKey(TIMETABLE_STORAGE_KEY, userId), isTimetableEntry);
+
+export const saveUserTimetable = (userId, timetable) =>
+  writeArray(userKey(TIMETABLE_STORAGE_KEY, userId), timetable);
+
+export const wasLegacyMigrationReviewed = () => {
   try {
-    const raw = localStorage.getItem(TIMETABLE_STORAGE_KEY);
-
-    if (!raw) return [];
-
-    const parsed = JSON.parse(raw);
-
-    if (!Array.isArray(parsed)) return [];
-
-    return parsed.filter(
-      (item) =>
-        item &&
-        typeof item === "object" &&
-        typeof item.id === "string" &&
-        typeof item.subject === "string" &&
-        Number.isInteger(item.day) &&
-        item.day >= 0 &&
-        item.day <= 6 &&
-        typeof item.startTime === "string" &&
-        typeof item.endTime === "string"
-    );
-  } catch (err) {
-    console.warn("Failed to read timetable from localStorage:", err);
-    return [];
+    return localStorage.getItem(LEGACY_REVIEWED_KEY) === "true";
+  } catch {
+    return false;
   }
 };
 
-export const saveTimetable = (timetable) => {
+export const markLegacyMigrationReviewed = () => {
   try {
-    localStorage.setItem(
-      TIMETABLE_STORAGE_KEY,
-      JSON.stringify(timetable)
-    );
+    localStorage.setItem(LEGACY_REVIEWED_KEY, "true");
   } catch (err) {
-    console.warn("Failed to save timetable:", err);
+    console.warn("Could not save the legacy migration decision:", err);
   }
 };
 
@@ -75,7 +81,5 @@ export const makeId = () => {
     return crypto.randomUUID();
   }
 
-  return `t_${Date.now().toString(36)}_${Math.random()
-    .toString(36)
-    .slice(2, 10)}`;
+  return `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 };
