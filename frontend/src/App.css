@@ -2412,3 +2412,21 @@ select {
     justify-self: end;
   }
 }
+
+.offline-settings-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin: 16px 0;
+}
+
+.offline-settings-actions > button {
+  min-height: 42px;
+}
+
+@media (max-width: 560px) {
+  .offline-settings-actions > button {
+    width: 100%;
+  }
+}
