@@ -8,6 +8,20 @@ export function dateLabel(value, options = { day: "numeric", month: "short" }) {
   return Number.isNaN(date.getTime()) ? "No date" : date.toLocaleDateString(undefined, options);
 }
 
+export function studySessionDate(session) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(session?.date || ""))) {
+    return session.date;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(session?.localDate || ""))) {
+    return session.localDate;
+  }
+
+  const timestamp = Date.parse(
+    session?.startedAt || session?.finishedAt || session?.endedAt || session?.createdAt || ""
+  );
+  return Number.isFinite(timestamp) ? dateKey(new Date(timestamp)) : "";
+}
+
 function minuteOfDay(value) {
   const [hours, minutes] = String(value || "00:00").split(":").map(Number);
   return hours * 60 + minutes;
