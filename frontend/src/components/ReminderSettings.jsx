@@ -5,9 +5,15 @@ import { loadUserSettings, saveUserSettings } from "../utils/storage";
 
 const DEFAULT_SETTINGS = {
   remindersEnabled: false,
+  classRemindersEnabled: true,
+  examRemindersEnabled: true,
+  taskRemindersEnabled: true,
   classLeadMinutes: 10,
   examLeadDays: 1,
   taskLeadDays: 1,
+  quietHoursEnabled: false,
+  quietHoursStart: "22:00",
+  quietHoursEnd: "07:00",
 };
 
 function getSettings(userId) {
@@ -38,6 +44,26 @@ function daysUntil(value) {
   const date = new Date(value + "T00:00:00");
   if (Number.isNaN(date.getTime())) return null;
   return Math.round((date - today) / 86400000);
+}
+
+function isQuietNow(settings, date) {
+  if (!settings.quietHoursEnabled) return false;
+  const parse = (value) => {
+    const match = String(value || "").match(/^(\d{2}):(\d{2})$/);
+    if (!match) return null;
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+    if (hour > 23 || minute > 59) return null;
+    return hour * 60 + minute;
+  };
+  const start = parse(settings.quietHoursStart);
+  const end = parse(settings.quietHoursEnd);
+  if (start === null || end === null || start === end) return false;
+
+  const nowMinutes = date.getHours() * 60 + date.getMinutes();
+  return start < end
+    ? nowMinutes >= start && nowMinutes < end
+    : nowMinutes >= start || nowMinutes < end;
 }
 
 function ReminderSettings({ userId, timetable, tasks, onToast, visible = true }) {
@@ -76,10 +102,14 @@ function ReminderSettings({ userId, timetable, tasks, onToast, visible = true })
 
     const checkReminders = () => {
       const current = new Date();
+      if (isQuietNow(settings, current)) return;
+
       const dateKey = localDateKey(current);
       const currentDay = current.getDay();
       const currentMinutes = current.getHours() * 60 + current.getMinutes();
-      const classes = timetable.filter((item) => item.day === currentDay);
+      const classes = settings.classRemindersEnabled
+        ? timetable.filter((item) => item.day === currentDay)
+        : [];
 
       classes.forEach((item) => {
         const parts = String(item.startTime || "").split(":").map(Number);
@@ -102,7 +132,7 @@ function ReminderSettings({ userId, timetable, tasks, onToast, visible = true })
         }
       });
 
-      tasks.filter((item) => isExam(item) && !item.completed && item.deadline).forEach((item) => {
+      (settings.examRemindersEnabled ? tasks.filter((item) => isExam(item) && !item.completed && item.deadline) : []).forEach((item) => {
         const delta = daysUntil(item.deadline);
         if (delta === null || delta < 0 || delta > Number(settings.examLeadDays)) return;
         const key = "exam:" + dateKey + ":" + item.id + ":" + settings.examLeadDays;
@@ -119,7 +149,7 @@ function ReminderSettings({ userId, timetable, tasks, onToast, visible = true })
         }
       });
 
-      tasks.filter((item) => !isExam(item) && !item.completed && item.deadline).forEach((item) => {
+      (settings.taskRemindersEnabled ? tasks.filter((item) => !isExam(item) && !item.completed && item.deadline) : []).forEach((item) => {
         const delta = daysUntil(item.deadline);
         if (delta === null || delta < 0 || delta > Number(settings.taskLeadDays)) return;
         const key = "task:" + dateKey + ":" + item.id + ":" + settings.taskLeadDays;
@@ -196,6 +226,33 @@ function ReminderSettings({ userId, timetable, tasks, onToast, visible = true })
         Choose when StudyFlow should remind you about your classes and exams.
       </p>
 
+      <div className="reminder-category-toggles" aria-label="Reminder categories">
+        <label>
+          <input
+            type="checkbox"
+            checked={settings.classRemindersEnabled}
+            onChange={(event) => updateSettings({ classRemindersEnabled: event.target.checked })}
+          />
+          Class reminders
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={settings.examRemindersEnabled}
+            onChange={(event) => updateSettings({ examRemindersEnabled: event.target.checked })}
+          />
+          Exam reminders
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={settings.taskRemindersEnabled}
+            onChange={(event) => updateSettings({ taskRemindersEnabled: event.target.checked })}
+          />
+          Task deadline reminders
+        </label>
+      </div>
+
       <div className="reminder-settings-row">
         <div className="field">
           <label htmlFor="class-reminder-lead">Class reminder</label>
@@ -235,6 +292,39 @@ function ReminderSettings({ userId, timetable, tasks, onToast, visible = true })
             <option value={3}>3 days before</option>
             <option value={7}>1 week before</option>
           </select>
+        </div>
+      </div>
+
+      <div className="reminder-quiet-controls">
+        <label className="reminder-quiet-toggle">
+          <input
+            type="checkbox"
+            checked={settings.quietHoursEnabled}
+            onChange={(event) => updateSettings({ quietHoursEnabled: event.target.checked })}
+          />
+          Enable quiet hours
+        </label>
+        <div className="reminder-settings-row quiet-hours-fields">
+          <div className="field">
+            <label htmlFor="quiet-hours-start">Quiet hours start</label>
+            <input
+              id="quiet-hours-start"
+              type="time"
+              value={settings.quietHoursStart}
+              onChange={(event) => updateSettings({ quietHoursStart: event.target.value })}
+              disabled={!settings.quietHoursEnabled}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="quiet-hours-end">Quiet hours end</label>
+            <input
+              id="quiet-hours-end"
+              type="time"
+              value={settings.quietHoursEnd}
+              onChange={(event) => updateSettings({ quietHoursEnd: event.target.value })}
+              disabled={!settings.quietHoursEnabled}
+            />
+          </div>
         </div>
       </div>
 
