@@ -459,6 +459,89 @@ function extractTransposedTimetable(rows) {
   );
 }
 
+function rowText(row, words = row.words) {
+  return [...words]
+    .sort((a, b) => centerX(a) - centerX(b))
+    .map((word) => word.text)
+    .join(" ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+// Detect the common college portal layout with weekday tabs on the left and
+// one selected day's class cards on the right (time, course code, faculty, room).
+function extractSingleDayCards(rows) {
+  const candidates = rows.map((row, index) => {
+    const text = rowText(row);
+    const times = parseTimes(text);
+    const isRange =
+      times.length >= 2 &&
+      times[1].minutes > times[0].minutes &&
+      /(?:\bto\b|[-–—])/i.test(text);
+    return { row, index, text, times, isRange };
+  });
+  const timeRows = candidates.filter((candidate) => candidate.isRange);
+  if (!timeRows.length) return [];
+
+  const result = [];
+
+  timeRows.forEach((candidate, cardIndex) => {
+    const firstTimeWordX = Math.min(
+      ...candidate.row.words
+        .filter((word) => parseTimes(word.text).length > 0)
+        .map(centerX)
+    );
+    if (!Number.isFinite(firstTimeWordX)) return;
+
+    const nextTimeRow = timeRows[cardIndex + 1];
+    const sectionRows = rows.filter((row) =>
+      row.y > candidate.row.y &&
+      (!nextTimeRow || row.y < nextTimeRow.row.y)
+    );
+
+    // Keep only words from the main card area, not the weekday navigation.
+    const contentBoundary = firstTimeWordX - 55;
+    const usefulLines = sectionRows
+      .map((row) => {
+        const words = row.words.filter((word) => centerX(word) >= contentBoundary);
+        return { row, words, text: rowText(row, words) };
+      })
+      .filter((line) => line.text.length >= 2);
+
+    if (!usefulLines.length) return;
+
+    const courseCodePattern = /\b[A-Z]{2,}[A-Z0-9]*\s*-?\s*\d{2,}[A-Z0-9]*\b/i;
+    const codeLine = usefulLines.find((line) => courseCodePattern.test(line.text));
+    const subjectLine = codeLine || usefulLines.find((line) =>
+      !/^(?:Dr\.?|Prof\.?|Mr\.?|Mrs\.?|Ms\.?)\b/i.test(line.text) &&
+      !/^(?:LT|CR|LAB|ROOM)\s*[-/]?\s*\d+/i.test(line.text)
+    );
+    if (!subjectLine) return;
+
+    const codeMatch = codeLine?.text.match(courseCodePattern);
+    const subject = (codeMatch?.[0] || cleanSubject(subjectLine.words)).trim();
+    if (!subject || /^(?:break|lunch|recess|free period|holiday|no class)$/i.test(subject)) {
+      return;
+    }
+
+    result.push({
+      day: null,
+      subject,
+      startTime: formatClock(candidate.times[0].minutes),
+      endTime: formatClock(candidate.times[1].minutes),
+      recurring: true,
+    });
+  });
+
+  const unique = new Map();
+  result.forEach((entry) => {
+    const key = [entry.startTime, entry.endTime, entry.subject.toLowerCase()].join("|");
+    if (!unique.has(key)) unique.set(key, entry);
+  });
+
+  return [...unique.values()].sort((a, b) => a.startTime.localeCompare(b.startTime));
+}
+
 export async function recognizeTimetableScreenshot(file, onProgress = () => {}) {
   if (!file || !["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
     throw new Error("Choose a timetable screenshot in PNG, JPG, or WEBP format.");
@@ -483,19 +566,49 @@ export async function recognizeTimetableScreenshot(file, onProgress = () => {}) 
     });
 
     onProgress(2, "Preparing image reader");
-    const { data } = await worker.recognize(file);
-    const words = (data.words || [])
+    // Tesseract.js v6 disables word/block output unless it is explicitly requested.
+    const { data } = await worker.recognize(file, {}, { blocks: true });
+    const recognizedLines = (data.blocks || []).flatMap((block) =>
+      (block.paragraphs || []).flatMap((paragraph) =>
+        (paragraph.lines || []).map((line) => ({
+          text: line.text || (line.words || []).map((word) => word.text).join(" "),
+          bbox: line.bbox,
+          words: line.words || [],
+        }))
+      )
+    );
+    const rawWords = (data.words || []).length
+      ? data.words
+      : recognizedLines.flatMap((line) => line.words || []);
+    const words = rawWords
       .filter((word) => word.text?.trim() && word.bbox)
-      .map((word) => ({ text: word.text.trim(), bbox: word.bbox, confidence: word.confidence || 0 }));
+      .map((word) => ({
+        text: word.text.trim(),
+        bbox: word.bbox,
+        confidence: word.confidence || 0,
+      }));
 
     if (!words.length) {
-      throw new Error("No readable text was found. Try a clearer screenshot with larger text.");
+      const foundText = String(data.text || "").trim();
+      throw new Error(
+        foundText
+          ? "The screenshot text was recognized, but the word positions could not be extracted. Please retry the upload."
+          : "No readable text was found. Try a full-resolution screenshot with sharp, visible text."
+      );
     }
 
     const rows = groupWordsIntoRows(words);
     const gridEntries = extractGridTimetable(rows);
     const transposedEntries = gridEntries.length ? [] : extractTransposedTimetable(rows);
-    const structuredEntries = gridEntries.length ? gridEntries : transposedEntries;
+    const cardEntries =
+      gridEntries.length || transposedEntries.length
+        ? []
+        : extractSingleDayCards(rows);
+    const structuredEntries = gridEntries.length
+      ? gridEntries
+      : transposedEntries.length
+      ? transposedEntries
+      : cardEntries;
 
     if (structuredEntries.length) {
       const unique = new Map();
@@ -510,10 +623,13 @@ export async function recognizeTimetableScreenshot(file, onProgress = () => {}) 
     }
 
     // Fallback for simple one-class-per-line screenshots that name the day explicitly.
-    const lines = (data.lines || []).map((line) => ({
-      text: line.text || "",
-      bbox: line.bbox,
-    }));
+    const lines = recognizedLines.length
+      ? recognizedLines
+      : (data.lines || []).map((line) => ({
+          text: line.text || "",
+          bbox: line.bbox,
+          words: [],
+        }));
     const fallback = [];
 
     lines.forEach((line) => {
