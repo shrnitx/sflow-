@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { makeId } from "../utils/storage";
-import { buildDailyPlan, createAssistantReply, dateKey, dateLabel, durationFor, sortPending } from "../utils/studyFlowLogic";
+import { buildDailyPlan, createAssistantReply, dateKey, dateLabel, durationFor, sortPending, studySessionDate } from "../utils/studyFlowLogic";
 import "./StudyFlowWorkspace.css";
 
 const USER_DATA_KEYS = ["exams", "syllabus", "reminders"];
@@ -51,20 +51,6 @@ function quietHoursActive(userId, now = new Date()) {
   return start < end
     ? current >= start && current < end
     : current >= start || current < end;
-}
-
-function sessionDate(session) {
-  if (/^\d{4}-\d{2}-\d{2}$/.test(String(session?.date || ""))) {
-    return session.date;
-  }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(String(session?.localDate || ""))) {
-    return session.localDate;
-  }
-
-  const timestamp = Date.parse(
-    session?.startedAt || session?.finishedAt || session?.endedAt || session?.createdAt || ""
-  );
-  return Number.isFinite(timestamp) ? dateKey(new Date(timestamp)) : "";
 }
 
 function clockLabel(value) {
@@ -447,9 +433,9 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
     setQuestion("");
   };
 
-  const todayMinutes = sessions.filter((session) => sessionDate(session) === dateKey()).reduce((sum, session) => sum + Number(session.durationMinutes || 0), 0);
+  const todayMinutes = sessions.filter((session) => studySessionDate(session) === dateKey()).reduce((sum, session) => sum + Number(session.durationMinutes || 0), 0);
   const normalizedSessions = useMemo(
-    () => sessions.map((session) => ({ ...session, date: sessionDate(session) })),
+    () => sessions.map((session) => ({ ...session, date: studySessionDate(session) })),
     [sessions]
   );
   const dueReviews = syllabus.filter((item) => !item.completed && item.nextReviewAt && item.nextReviewAt <= dateKey());
@@ -464,15 +450,15 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
       date.setHours(0, 0, 0, 0);
       date.setDate(date.getDate() - (6 - index));
       const key = dateKey(date);
-      return { key, label: date.toLocaleDateString(undefined, { weekday: "short" }), minutes: sessions.filter((session) => sessionDate(session) === key).reduce((sum, session) => sum + Number(session.durationMinutes || 0), 0) };
+      return { key, label: date.toLocaleDateString(undefined, { weekday: "short" }), minutes: sessions.filter((session) => studySessionDate(session) === key).reduce((sum, session) => sum + Number(session.durationMinutes || 0), 0) };
     });
     const max = Math.max(60, ...days.map((day) => day.minutes));
     const subjects = {};
-    sessions.filter((session) => sessionDate(session) >= days[0].key && sessionDate(session) <= days[6].key).forEach((session) => {
+    sessions.filter((session) => studySessionDate(session) >= days[0].key && studySessionDate(session) <= days[6].key).forEach((session) => {
       const subject = session.subject || "Uncategorized";
       subjects[subject] = (subjects[subject] || 0) + Number(session.durationMinutes || 0);
     });
-    const activeDays = new Set(sessions.map(sessionDate).filter(Boolean));
+    const activeDays = new Set(sessions.map(studySessionDate).filter(Boolean));
     let streak = 0;
     const cursor = new Date();
     cursor.setHours(0, 0, 0, 0);
