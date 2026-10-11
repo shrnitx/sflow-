@@ -224,12 +224,30 @@ function Timetable({ timetable, setTimetable, setToast, tasks = [], onImportTask
         setTimetable((current) => [...current, ...freshClasses]);
       }
 
-      const importedTasks = parsed.tasks.map((item) => ({ ...item, id: makeId() }));
+      const existingTaskKeys = new Set(
+        tasks.map((item) => [
+          String(item.type || "task").toLowerCase(),
+          String(item.title || "").trim().toLowerCase(),
+          String(item.deadline || ""),
+        ].join("|"))
+      );
+      const importedTasks = parsed.tasks
+        .filter((item) => {
+          const key = [
+            String(item.type || "task").toLowerCase(),
+            String(item.title || "").trim().toLowerCase(),
+            String(item.deadline || ""),
+          ].join("|");
+          if (existingTaskKeys.has(key)) return false;
+          existingTaskKeys.add(key);
+          return true;
+        })
+        .map((item) => ({ ...item, id: makeId() }));
       if (importedTasks.length) onImportTasks(importedTasks);
 
       const summary = [];
       if (freshClasses.length) summary.push(freshClasses.length + " class(es)");
-      if (importedTasks.length) summary.push(importedTasks.length + " task/exam reminder(s)");
+      if (importedTasks.length) summary.push(importedTasks.length + " new task/exam reminder(s)");
       const errorCount = parsed.errors.length;
       setToast(
         summary.length
