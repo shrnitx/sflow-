@@ -736,6 +736,15 @@ function App() {
           visible={activeSection === "settings"}
         />
 
+        <FocusMode
+          timetable={timetable}
+          tasks={tasks}
+          sessions={focusSessions}
+          setSessions={setFocusSessions}
+          onToast={setToast}
+          visible={activeSection === "focus"}
+        />
+
         {activeSection !== "home" && dataSyncError && (
           <div className="cloud-sync-warning" role="alert">
             <span>{dataSyncError}</span>
@@ -840,17 +849,6 @@ function App() {
             setToast={setToast}
             tasks={tasks}
             onImportTasks={importCalendarTasks}
-          />
-        )}
-
-        {activeSection === "focus" && (
-          <FocusMode
-            userId={user.id}
-            timetable={timetable}
-            tasks={tasks}
-            sessions={focusSessions}
-            setSessions={setFocusSessions}
-            onToast={setToast}
           />
         )}
 
