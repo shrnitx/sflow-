@@ -245,88 +245,92 @@ export default function TimetableScreenshotImport({
           <div className="timetable-import-rows">
             {entries.map((entry) => (
               <div className="timetable-import-row" key={entry.draftId}>
-                <div className="field timetable-import-subject">
-                  <label htmlFor={"import-subject-" + entry.draftId}>Subject</label>
-                  <input
-                    id={"import-subject-" + entry.draftId}
-                    value={entry.subject}
-                    onChange={(event) => updateEntry(entry.draftId, "subject", event.target.value)}
-                    maxLength={100}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor={"import-course-code-" + entry.draftId}>Course code</label>
-                  <input
-                    id={"import-course-code-" + entry.draftId}
-                    value={entry.courseCode || ""}
-                    onChange={(event) => updateEntry(entry.draftId, "courseCode", event.target.value)}
-                    maxLength={40}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor={"import-instructor-" + entry.draftId}>Faculty</label>
-                  <input
-                    id={"import-instructor-" + entry.draftId}
-                    value={entry.instructor || ""}
-                    onChange={(event) => updateEntry(entry.draftId, "instructor", event.target.value)}
-                    maxLength={100}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor={"import-room-" + entry.draftId}>Room</label>
-                  <input
-                    id={"import-room-" + entry.draftId}
-                    value={entry.room || ""}
-                    onChange={(event) => updateEntry(entry.draftId, "room", event.target.value)}
-                    maxLength={80}
-                  />
-                </div>
-                <div className="field">
-                  <label htmlFor={"import-day-" + entry.draftId}>Day</label>
-                  <select
-                    id={"import-day-" + entry.draftId}
-                    value={entry.day === null || entry.day === undefined ? defaultDay : entry.day}
-                    onChange={(event) => updateEntry(
-                      entry.draftId,
-                      "day",
-                      event.target.value === "" ? null : Number(event.target.value)
-                    )}
+                <div className="timetable-import-core">
+                  <div className="field timetable-import-subject">
+                    <label htmlFor={"import-subject-" + entry.draftId}>Subject</label>
+                    <input
+                      id={"import-subject-" + entry.draftId}
+                      value={entry.subject}
+                      onChange={(event) => updateEntry(entry.draftId, "subject", event.target.value)}
+                      maxLength={100}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor={"import-day-" + entry.draftId}>Day</label>
+                    <select
+                      id={"import-day-" + entry.draftId}
+                      value={entry.day === null || entry.day === undefined ? defaultDay : entry.day}
+                      onChange={(event) => updateEntry(
+                        entry.draftId,
+                        "day",
+                        event.target.value === "" ? null : Number(event.target.value)
+                      )}
+                    >
+                      {(entry.day === null || entry.day === undefined) && (
+                        <option value="">Use weekday above</option>
+                      )}
+                      {DAYS.map((day, index) => (
+                        <option key={day} value={index}>{day}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="field">
+                    <label htmlFor={"import-start-" + entry.draftId}>Start</label>
+                    <input
+                      id={"import-start-" + entry.draftId}
+                      type="time"
+                      value={entry.startTime}
+                      onChange={(event) => updateEntry(entry.draftId, "startTime", event.target.value)}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor={"import-end-" + entry.draftId}>End</label>
+                    <input
+                      id={"import-end-" + entry.draftId}
+                      type="time"
+                      value={entry.endTime}
+                      onChange={(event) => updateEntry(entry.draftId, "endTime", event.target.value)}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    className="icon-button danger timetable-import-remove"
+                    onClick={() => removeEntry(entry.draftId)}
+                    aria-label={"Remove " + entry.subject}
+                    title="Remove this detected class"
                   >
-                    {(entry.day === null || entry.day === undefined) && (
-                      <option value="">Use weekday above</option>
-                    )}
-                    {DAYS.map((day, index) => (
-                      <option key={day} value={index}>{day}</option>
-                    ))}
-                  </select>
+                    <Trash2 size={15} />
+                  </button>
                 </div>
-                <div className="field">
-                  <label htmlFor={"import-start-" + entry.draftId}>Start</label>
-                  <input
-                    id={"import-start-" + entry.draftId}
-                    type="time"
-                    value={entry.startTime}
-                    onChange={(event) => updateEntry(entry.draftId, "startTime", event.target.value)}
-                  />
+                <div className="timetable-import-extra">
+                  <div className="field">
+                    <label htmlFor={"import-course-code-" + entry.draftId}>Course code</label>
+                    <input
+                      id={"import-course-code-" + entry.draftId}
+                      value={entry.courseCode || ""}
+                      onChange={(event) => updateEntry(entry.draftId, "courseCode", event.target.value)}
+                      maxLength={40}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor={"import-instructor-" + entry.draftId}>Faculty</label>
+                    <input
+                      id={"import-instructor-" + entry.draftId}
+                      value={entry.instructor || ""}
+                      onChange={(event) => updateEntry(entry.draftId, "instructor", event.target.value)}
+                      maxLength={100}
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor={"import-room-" + entry.draftId}>Room</label>
+                    <input
+                      id={"import-room-" + entry.draftId}
+                      value={entry.room || ""}
+                      onChange={(event) => updateEntry(entry.draftId, "room", event.target.value)}
+                      maxLength={80}
+                    />
+                  </div>
                 </div>
-                <div className="field">
-                  <label htmlFor={"import-end-" + entry.draftId}>End</label>
-                  <input
-                    id={"import-end-" + entry.draftId}
-                    type="time"
-                    value={entry.endTime}
-                    onChange={(event) => updateEntry(entry.draftId, "endTime", event.target.value)}
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="icon-button danger timetable-import-remove"
-                  onClick={() => removeEntry(entry.draftId)}
-                  aria-label={"Remove " + entry.subject}
-                  title="Remove this detected class"
-                >
-                  <Trash2 size={15} />
-                </button>
               </div>
             ))}
           </div>
