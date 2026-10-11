@@ -49,6 +49,7 @@ import FocusMode from "./components/FocusMode";
 import Login from "./components/auth/login";
 import Signup from "./components/auth/signup";
 import { useAuth } from "./context/AuthContext";
+import { DAYS } from "./utils/timetable";
 
 import "./App.css";
 
