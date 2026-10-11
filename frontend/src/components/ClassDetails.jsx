@@ -63,7 +63,7 @@ function ClassDetails({ classItem, tasks, onClose }) {
           <div>
             <span className="section-kicker">CLASS DETAILS</span>
             <h2 id="class-details-title">{classItem.subject}</h2>
-            {classItem.courseCode && <span className="class-details-course-code">{classItem.courseCode}</span>}
+            {classItem.courseCode && classItem.courseCode.toLowerCase() !== String(classItem.subject || "").toLowerCase() && <span className="class-details-course-code">{classItem.courseCode}</span>}
             <div className="class-time-line">
               <Clock3 size={16} />
               {formatTime(classItem.startTime)} – {formatTime(classItem.endTime)}
