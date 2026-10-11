@@ -751,7 +751,9 @@ function App() {
     );
   }
 
-  if (dataLoading || dataLoadedFor !== user.id) {
+  // Keep the already-loaded workspace mounted during same-account refreshes.
+  // This prevents an online/retry sync from resetting an active focus timer.
+  if (dataLoadedFor !== user.id) {
     return <div className="app-loading">Loading your StudyFlow data...</div>;
   }
 
@@ -862,9 +864,9 @@ function App() {
           </div>
         )}
 
-        {activeSection !== "home" && !dataSyncError && dataSyncing && (
+        {activeSection !== "home" && !dataSyncError && (dataLoading || dataSyncing) && (
           <div className="cloud-sync-status" role="status" aria-live="polite">
-            Saving changes to your account...
+            {dataLoading ? "Refreshing your account data..." : "Saving changes to your account..."}
           </div>
         )}
 
