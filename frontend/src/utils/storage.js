@@ -76,6 +76,57 @@ export const loadUserFocusSessions = (userId) =>
 export const saveUserFocusSessions = (userId, sessions) =>
   writeArray(userKey(FOCUS_STORAGE_KEY, userId), sessions);
 
+const CLOUD_BASELINE_STORAGE_KEY = "studyflow.cloud-baseline.v1";
+
+export const loadUserCloudBaseline = (userId) => {
+  try {
+    const raw = localStorage.getItem(userKey(CLOUD_BASELINE_STORAGE_KEY, userId));
+    if (!raw) return null;
+
+    const parsed = JSON.parse(raw);
+    if (
+      !parsed ||
+      typeof parsed !== "object" ||
+      !Array.isArray(parsed.tasks) ||
+      !Array.isArray(parsed.timetable) ||
+      !Array.isArray(parsed.focusSessions)
+    ) {
+      return null;
+    }
+
+    return {
+      tasks: parsed.tasks.filter(isTask),
+      timetable: parsed.timetable.filter(isTimetableEntry),
+      focusSessions: parsed.focusSessions.filter(isFocusSession),
+    };
+  } catch (error) {
+    console.warn("Failed to read StudyFlow cloud baseline:", error);
+    return null;
+  }
+};
+
+// This snapshot advances only after the entire current cloud write succeeds.
+// It lets a later reload distinguish unsynced local edits from an old cache.
+export const saveUserCloudBaseline = (userId, baseline) => {
+  try {
+    const value = {
+      tasks: Array.isArray(baseline?.tasks) ? baseline.tasks.filter(isTask) : [],
+      timetable: Array.isArray(baseline?.timetable)
+        ? baseline.timetable.filter(isTimetableEntry)
+        : [],
+      focusSessions: Array.isArray(baseline?.focusSessions)
+        ? baseline.focusSessions.filter(isFocusSession)
+        : [],
+    };
+    localStorage.setItem(
+      userKey(CLOUD_BASELINE_STORAGE_KEY, userId),
+      JSON.stringify(value)
+    );
+  } catch (error) {
+    console.warn("Failed to save StudyFlow cloud baseline:", error);
+  }
+};
+
 const settingsKey = (userId) => `studyflow.settings.user.${encodeURIComponent(userId)}`;
 
 export const loadUserSettings = (userId) => {
