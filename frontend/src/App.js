@@ -970,6 +970,7 @@ function App() {
         {activeSection === "exams" && (
           <ExamPrepPlanner
             exams={tasks.filter(isExamItem)}
+            existingTasks={tasks}
             onGenerate={generateExamPlan}
             onToast={setToast}
           />
