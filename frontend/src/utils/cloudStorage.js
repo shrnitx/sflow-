@@ -126,3 +126,42 @@ export function syncUserCollection(collection, userId, records) {
 
   return next;
 }
+
+async function upsertCollectionNow(collection, userId, records) {
+  const table = tableFor(collection);
+  const normalized = Array.isArray(records)
+    ? records.filter((record) => validRecord(collection, record))
+    : [];
+  if (!normalized.length) return;
+
+  const rows = normalized.map((record) => ({
+    user_id: userId,
+    record_id: record.id,
+    data: record,
+    updated_at: new Date().toISOString(),
+  }));
+  const { error } = await supabase
+    .from(table)
+    .upsert(rows, { onConflict: "user_id,record_id" });
+  if (error) throw error;
+}
+
+// Upsert-only recovery is used when cloud loading previously failed. It does
+// not delete remote records based on an incomplete local snapshot.
+export function upsertUserCollection(collection, userId, records) {
+  const table = tableFor(collection);
+  const queueKey = `${userId}:${table}`;
+  const previous = pendingWrites.get(queueKey) || Promise.resolve();
+  const next = previous
+    .catch(() => undefined)
+    .then(() => upsertCollectionNow(collection, userId, records));
+
+  pendingWrites.set(queueKey, next);
+  next.finally(() => {
+    if (pendingWrites.get(queueKey) === next) {
+      pendingWrites.delete(queueKey);
+    }
+  }).catch(() => undefined);
+
+  return next;
+}
