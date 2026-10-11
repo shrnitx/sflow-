@@ -221,17 +221,31 @@ export function parseStudyFlowCalendar(text) {
       return;
     }
 
-    if (!start.allDay && end && !end.allDay && start.time && end.time && start.time !== end.time) {
+    if (event.RRULE && !start.allDay && end && !end.allDay && start.time && end.time && start.time !== end.time) {
       const days = eventDayList(event);
+      const description = event.DESCRIPTION?.text || "";
+      const fieldValue = (label) => {
+        const match = description.match(new RegExp("^" + label + ":\\s*(.*)$", "im"));
+        return match ? match[1].trim() : "";
+      };
+      const notes = description
+        .split(/\r?\n/)
+        .filter((line) => !/^(?:Course|Instructor|Online):\\s*/i.test(line))
+        .join("\n")
+        .trim();
+
       days.forEach((day) => timetable.push({
         id: "",
         subject: title,
+        courseCode: fieldValue("Course"),
+        instructor: fieldValue("Instructor"),
+        meetingUrl: fieldValue("Online"),
         day,
         startTime: start.time,
         endTime: end.time,
-        recurring: Boolean(event.RRULE),
+        recurring: true,
         room: event.LOCATION?.text || "",
-        notes: event.DESCRIPTION?.text || "",
+        notes,
       }));
       return;
     }
