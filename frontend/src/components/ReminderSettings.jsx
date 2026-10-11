@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Bell, BellOff, CheckCircle2, Clock3, GraduationCap } from "lucide-react";
-import { DAYS, sortClassesByTime } from "../utils/timetable";
+import { sortClassesByTime, timeToMinutes } from "../utils/timetable";
 import { loadUserSettings, saveUserSettings } from "../utils/storage";
 
 const DEFAULT_SETTINGS = {
@@ -61,7 +61,7 @@ function ReminderSettings({ userId, timetable, tasks, onToast, visible = true })
     const currentDay = now.getDay();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
     const nextClass = sortClassesByTime(
-      timetable.filter((item) => item.day === currentDay && Number(item.startTime?.slice(0, 2) * 60 + Number(item.startTime?.slice(3, 5))) > currentMinutes)
+      timetable.filter((item) => item.day === currentDay && timeToMinutes(item.startTime) > currentMinutes)
     )[0];
     const upcomingExam = tasks
       .filter((item) => isExam(item) && !item.completed && item.deadline)
