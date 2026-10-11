@@ -113,7 +113,9 @@ async function main() {
     await quickInput.fill("Biology assignment due Friday, high priority");
     await page.getByRole("button", { name: "Preview" }).click();
     await page.getByText("Assignment", { exact: true }).waitFor();
-    await page.getByText("High", { exact: true }).waitFor();
+    const quickPreviewPriority = page.locator(".quick-add-preview > div").nth(3).locator("strong");
+    await quickPreviewPriority.waitFor();
+    assert.equal(await quickPreviewPriority.innerText(), "High");
     await page.locator(".quick-add-form button[type='submit']").click();
     await page.getByRole("heading", { name: "Assignment", exact: true }).waitFor();
     assert.equal(await quickInput.inputValue(), "");
