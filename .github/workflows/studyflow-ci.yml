@@ -3,9 +3,6 @@ name: StudyFlow CI
 on:
   pull_request:
     branches: [main]
-  push:
-    branches:
-      - "fix/**"
 
 permissions:
   contents: read
