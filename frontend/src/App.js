@@ -612,8 +612,9 @@ function App() {
       return;
     }
 
-    if (!editForm.deadline) {
-      setToast("Please select a deadline.");
+    const editingTask = tasks.find((task) => task.id === editingId);
+    if (!editForm.deadline && isExamItem(editingTask)) {
+      setToast("Please select an exam date.");
       return;
     }
 
