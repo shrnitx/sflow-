@@ -204,6 +204,7 @@ function App() {
 
   useEffect(() => {
     setActiveSection("home");
+    offlineLoadRef.current = null;
   }, [user?.id]);
 
   useEffect(() => {
