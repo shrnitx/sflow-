@@ -513,7 +513,7 @@ function rowText(row, words = row.words) {
 
 // Detect the common college portal layout with weekday tabs on the left and
 // one selected day's class cards on the right (time, course code, faculty, room).
-function extractSingleDayCards(rows) {
+export function extractSingleDayCards(rows) {
   const candidates = rows.map((row, index) => {
     const text = rowText(row);
     const times = parseTimes(text);
