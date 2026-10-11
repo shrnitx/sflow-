@@ -23,10 +23,13 @@ describe("StudyFlow calendar import/export", () => {
     expect(parsed.timetable).toHaveLength(1);
     expect(parsed.timetable[0]).toMatchObject({
       subject: "Bioinformatics",
+      courseCode: "BTF123",
+      instructor: "Dr Example",
       day: 1,
       startTime: "09:15",
       endTime: "10:10",
       room: "LT-23",
+      notes: "Bring notebook",
     });
   });
 
