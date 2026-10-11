@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  CalendarDays,\n  Cloud,\n  CloudOff,\n  RefreshCw,
+  CalendarDays,
+  Cloud,
+  CloudOff,
+  RefreshCw,
   Check,
   CheckCircle2,
   Clock3,
@@ -30,7 +33,9 @@ import Login from "./components/auth/login";
 import Signup from "./components/auth/signup";
 import { useAuth } from "./context/AuthContext";
 
-import StudyFlowHeroAnimation from "./components/StudyFlowHeroAnimation";\nimport StudyFlowWorkspace from "./components/StudyFlowWorkspace";\nimport useStudyFlowCloudSync from "./hooks/useStudyFlowCloudSync";
+import StudyFlowHeroAnimation from "./components/StudyFlowHeroAnimation";
+import StudyFlowWorkspace from "./components/StudyFlowWorkspace";
+import useStudyFlowCloudSync from "./hooks/useStudyFlowCloudSync";
 import StudyMusicPlayer from "./components/StudyMusicPlayer";
 
 import "./App.css";
@@ -125,7 +130,9 @@ function App() {
   const [toast, setToast] = useState("");
 
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState(EMPTY_FORM);\n\n  const cloudSync = useStudyFlowCloudSync({ user, tasks, setTasks, timetable, setTimetable });
+  const [editForm, setEditForm] = useState(EMPTY_FORM);
+
+  const cloudSync = useStudyFlowCloudSync({ user, tasks, setTasks, timetable, setTimetable });
 
   useEffect(() => {
     saveTasks(tasks);
