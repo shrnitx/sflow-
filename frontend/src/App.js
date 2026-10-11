@@ -104,6 +104,7 @@ function App() {
   const [showSignup, setShowSignup] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataLoadedFor, setDataLoadedFor] = useState(null);
+  const [cloudReadyFor, setCloudReadyFor] = useState(null);
   const [dataLoadAttempt, setDataLoadAttempt] = useState(0);
   const [dataSyncing, setDataSyncing] = useState(false);
   const [dataSyncError, setDataSyncError] = useState("");
@@ -150,6 +151,7 @@ function App() {
 
     const initializeUserData = async () => {
       setDataLoading(true);
+      setCloudReadyFor(null);
       setDataSyncError("");
 
       try {
@@ -226,6 +228,7 @@ function App() {
         setTasks(nextTasks);
         setTimetable(nextTimetable);
         setDataLoadedFor(user.id);
+        setCloudReadyFor(user.id);
         setDataSyncError("");
       } catch (error) {
         if (cancelled) return;
@@ -250,7 +253,12 @@ function App() {
   }, [user?.id, user?.email, dataLoadAttempt]);
 
   useEffect(() => {
-    if (!user?.id || dataLoadedFor !== user.id) return;
+    if (
+      !user?.id ||
+      dataLoadedFor !== user.id ||
+      cloudReadyFor !== user.id ||
+      dataSyncError
+    ) return;
 
     // Cache by user ID; do not put account data back into the old shared browser keys.
     saveUserTasks(user.id, tasks);
@@ -276,7 +284,7 @@ function App() {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [tasks, timetable, user?.id, dataLoadedFor]);
+  }, [tasks, timetable, user?.id, dataLoadedFor, cloudReadyFor, dataSyncError]);
 
   useEffect(() => {
     if (!toast) return;
