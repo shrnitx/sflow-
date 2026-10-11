@@ -78,6 +78,9 @@
 
 .sf-agenda-label {
   flex: 0 0 auto;
+  max-width: 112px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   padding: 4px 5px;
   border-radius: 5px;
   color: #64748B;
@@ -85,6 +88,7 @@
   font-size: 6px;
   font-weight: 800;
   letter-spacing: 0.08em;
+  white-space: nowrap;
 }
 
 .sf-agenda-rule {
@@ -101,10 +105,6 @@
   min-height: 29px;
 }
 
-.sf-agenda-task-first {
-  position: relative;
-}
-
 .sf-task-check {
   position: relative;
   display: inline-flex;
@@ -113,9 +113,16 @@
   flex: 0 0 15px;
   width: 15px;
   height: 15px;
+  overflow: visible;
   border: 1.5px solid #D7DCE7;
   border-radius: 5px;
   background: #FFFFFF;
+}
+
+.sf-task-check-completed {
+  border-color: #10B981;
+  background: #10B981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.08);
 }
 
 .sf-check-mark {
@@ -153,6 +160,9 @@
   align-items: center;
   gap: 3px;
   color: #94A3B8;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: 7px;
   line-height: 1;
 }
@@ -169,6 +179,39 @@
 .sf-task-priority-mint { background: #10B981; }
 .sf-task-priority-indigo { background: #4F46E5; }
 .sf-task-priority-amber { background: #F59E0B; }
+
+.sf-agenda-skeleton {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 29px;
+}
+
+.sf-skeleton-check {
+  flex: 0 0 15px;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 5px;
+  background: #F8FAFC;
+}
+
+.sf-skeleton-lines {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sf-skeleton-lines i {
+  display: block;
+  width: 66%;
+  height: 4px;
+  border-radius: 99px;
+  background: #E8EDF4;
+}
+
+.sf-skeleton-lines i + i { width: 36%; background: #F0F3F7; }
 
 .sf-planner-cover {
   position: absolute;
@@ -200,16 +243,8 @@
   background: rgba(255, 255, 255, 0.13);
 }
 
-.sf-cover-title {
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.2em;
-}
-
-.sf-cover-subtitle {
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 7px;
-}
+.sf-cover-title { font-size: 9px; font-weight: 800; letter-spacing: 0.2em; }
+.sf-cover-subtitle { color: rgba(255, 255, 255, 0.78); font-size: 7px; }
 
 .sf-cover-bottom-line {
   position: absolute;
@@ -231,15 +266,8 @@
   will-change: transform, opacity;
 }
 
-.sf-floating-inner {
-  display: flex;
-  align-items: center;
-}
-
-.sf-checklist-inner {
-  gap: 7px;
-  padding: 8px 9px;
-}
+.sf-floating-inner { display: flex; align-items: center; }
+.sf-checklist-inner { gap: 7px; padding: 8px 9px; }
 
 .sf-floating-checklist {
   top: 42px;
@@ -255,16 +283,8 @@
   border-radius: 9px;
 }
 
-.sf-icon-indigo {
-  color: #4F46E5;
-  background: #EEF2FF;
-}
-
-.sf-floating-label {
-  color: #64748B;
-  font-size: 8px;
-  white-space: nowrap;
-}
+.sf-icon-indigo { color: #4F46E5; background: #EEF2FF; }
+.sf-floating-label { color: #64748B; font-size: 8px; white-space: nowrap; }
 
 .sf-floating-label strong {
   display: block;
@@ -289,12 +309,7 @@
   background: #FFF7E6;
 }
 
-.sf-target-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #4F46E5;
-}
+.sf-target-icon { display: flex; align-items: center; justify-content: center; color: #4F46E5; }
 
 .sf-target-star {
   position: absolute;
@@ -310,15 +325,8 @@
   background: #F59E0B;
 }
 
-.sf-floating-progress {
-  right: 0;
-  bottom: 8px;
-  padding: 8px 9px;
-}
-
-.sf-progress-inner {
-  gap: 7px;
-}
+.sf-floating-progress { right: 0; bottom: 8px; padding: 8px 9px; }
+.sf-progress-inner { gap: 7px; }
 
 .sf-progress-ring {
   position: relative;
@@ -328,7 +336,6 @@
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: conic-gradient(#10B981 0deg 238deg, #E2E8F0 238deg 360deg);
 }
 
 .sf-progress-ring::before {
@@ -347,23 +354,9 @@
   font-weight: 800;
 }
 
-.sf-progress-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  white-space: nowrap;
-}
-
-.sf-progress-copy strong {
-  color: #334155;
-  font-size: 8px;
-  font-weight: 800;
-}
-
-.sf-progress-copy small {
-  color: #94A3B8;
-  font-size: 7px;
-}
+.sf-progress-copy { display: flex; flex-direction: column; gap: 3px; white-space: nowrap; }
+.sf-progress-copy strong { color: #334155; font-size: 8px; font-weight: 800; }
+.sf-progress-copy small { color: #94A3B8; font-size: 7px; }
 
 .sf-sparkle {
   position: absolute;
@@ -373,26 +366,12 @@
   color: #F59E0B;
   background: currentColor;
   clip-path: polygon(50% 0%, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0% 50%, 39% 39%);
-  opacity: 0;
   pointer-events: none;
-  animation: sf-sparkle-pop 720ms ease-out 2.05s both;
 }
 
 .sf-sparkle-one { top: -8px; right: -5px; }
-.sf-sparkle-two { top: 1px; left: -7px; color: #10B981; animation-delay: 2.11s; }
-.sf-sparkle-three { bottom: -5px; right: 0; width: 4px; height: 4px; animation-delay: 2.16s; }
-.sf-sparkle-four { bottom: 0; left: -5px; width: 4px; height: 4px; color: #4F46E5; animation-delay: 2.2s; }
-
-@keyframes sf-sparkle-pop {
-  0% { opacity: 0; transform: scale(0.3) translateY(3px); }
-  28% { opacity: 1; transform: scale(1) translateY(-1px); }
-  100% { opacity: 0; transform: scale(0.2) translateY(-7px); }
-}
-
-@keyframes sf-gentle-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-3px); }
-}
+.sf-sparkle-two { top: 1px; left: -7px; color: #10B981; }
+.sf-sparkle-three { bottom: -5px; right: 0; width: 4px; height: 4px; color: #4F46E5; }
 
 @media (prefers-reduced-motion: no-preference) {
   .sf-floating-inner {
@@ -403,9 +382,12 @@
   .sf-floating-progress .sf-floating-inner { animation-delay: 3.3s; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .sf-floating-inner,
-  .sf-sparkle { animation: none !important; }
+@keyframes sf-gentle-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
 
+@media (prefers-reduced-motion: reduce) {
+  .sf-floating-inner { animation: none !important; }
   .sf-sparkle { display: none; }
 }

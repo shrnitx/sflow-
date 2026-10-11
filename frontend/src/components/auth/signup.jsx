@@ -1,8 +1,9 @@
 import React, { useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import "./auth.css";
+import StudyFlowHeroAnimation from "../StudyFlowHeroAnimation";
 
-export default function Signup({ onShowLogin }) {
+export default function Signup({ onShowLogin, tasks = [] }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -61,8 +62,22 @@ export default function Signup({ onShowLogin }) {
   };
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
+    <div className="auth-page studyflow-auth-page">
+      <main className="studyflow-auth-layout">
+        <section className="studyflow-auth-showcase">
+          <div className="studyflow-auth-kicker">
+            <span className="studyflow-auth-kicker-dot" />
+            FROM STUDY CHAOS TO DAILY FLOW
+          </div>
+          <h2>Make room for <span>better focus.</span></h2>
+          <p>See your recent study work at a glance, celebrate completed tasks, and keep your next step clear.</p>
+          <StudyFlowHeroAnimation tasks={tasks} />
+          <div className="studyflow-auth-note">
+            <span className="studyflow-auth-note-mark">✓</span>
+            Your planner reflects tasks saved in this browser.
+          </div>
+        </section>
+        <div className="auth-card">
         <h1>Create Account</h1>
         <p>Start using StudyFlow.</p>
 
@@ -125,7 +140,8 @@ export default function Signup({ onShowLogin }) {
             Login
           </button>
         </p>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

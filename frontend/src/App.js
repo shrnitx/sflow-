@@ -237,6 +237,7 @@ function App() {
       return;
     }
 
+    const now = new Date().toISOString();
     const newTask = {
       id: makeId(),
       title: form.title.trim(),
@@ -245,7 +246,9 @@ function App() {
       priority: form.priority,
       description: form.description.trim(),
       completed: false,
-      createdAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
+      completedAt: null,
     };
 
     setTasks((current) => [newTask, ...current]);
@@ -256,15 +259,20 @@ function App() {
   };
 
   const toggleTask = (id) => {
+    const now = new Date().toISOString();
+
     setTasks((current) =>
-      current.map((task) =>
-        task.id === id
-          ? {
-              ...task,
-              completed: !task.completed,
-            }
-          : task
-      )
+      current.map((task) => {
+        if (task.id !== id) return task;
+
+        const completed = !task.completed;
+        return {
+          ...task,
+          completed,
+          updatedAt: now,
+          completedAt: completed ? now : null,
+        };
+      })
     );
 
     setToast("Task status updated.");
@@ -318,6 +326,8 @@ function App() {
       return;
     }
 
+    const now = new Date().toISOString();
+
     setTasks((current) =>
       current.map((task) =>
         task.id === editingId
@@ -328,6 +338,7 @@ function App() {
               deadline: editForm.deadline,
               priority: editForm.priority,
               description: editForm.description.trim(),
+              updatedAt: now,
             }
           : task
       )
@@ -350,9 +361,9 @@ function App() {
 
   if (!user) {
     return showSignup ? (
-      <Signup onShowLogin={() => setShowSignup(false)} />
+      <Signup onShowLogin={() => setShowSignup(false)} tasks={tasks} />
     ) : (
-      <Login onShowSignup={() => setShowSignup(true)} />
+      <Login onShowSignup={() => setShowSignup(true)} tasks={tasks} />
     );
   }
 
