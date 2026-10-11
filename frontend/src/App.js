@@ -148,7 +148,6 @@ function App() {
   const [showSignup, setShowSignup] = useState(false);
   const [activeSection, setActiveSection] = useState("home");
   const [focusSessions, setFocusSessions] = useState([]);
-  const offlineLoadRef = useRef(null);
   const [dataLoading, setDataLoading] = useState(false);
   const [dataLoadedFor, setDataLoadedFor] = useState(null);
   const [cloudReadyFor, setCloudReadyFor] = useState(null);
@@ -193,7 +192,6 @@ function App() {
 
   useEffect(() => {
     setActiveSection("home");
-    offlineLoadRef.current = null;
   }, [user?.id]);
 
   useEffect(() => {
@@ -262,24 +260,31 @@ function App() {
         // Only merge local data when it actually changed since that snapshot.
         // Otherwise the cloud wins, so deletions/edits from another device aren't
         // undone by simply opening an older browser cache.
+        // If this account has no prior successful sync baseline, the just-read
+        // cloud collections are the first reliable reference point. Persist them
+        // before attempting any local-cache reconciliation.
         const savedBaseline = loadUserCloudBaseline(user.id);
-        const failedLoadSnapshot = offlineLoadRef.current?.userId === user.id
-          ? offlineLoadRef.current
-          : null;
-        const offlineBaseline = savedBaseline || failedLoadSnapshot;
-
-        if (offlineBaseline) {
-          if (!areRecordsEqual(cachedTasks, offlineBaseline.tasks)) {
-            nextTasks = mergeOfflineCollection(nextTasks, cachedTasks, offlineBaseline.tasks);
-          }
-          if (!areRecordsEqual(cachedTimetable, offlineBaseline.timetable)) {
-            nextTimetable = mergeOfflineCollection(nextTimetable, cachedTimetable, offlineBaseline.timetable);
-          }
-          if (!areRecordsEqual(cachedFocusSessions, offlineBaseline.focusSessions)) {
-            nextFocusSessions = mergeOfflineCollection(nextFocusSessions, cachedFocusSessions, offlineBaseline.focusSessions);
-          }
+        const offlineBaseline = savedBaseline || {
+          tasks: results[0],
+          timetable: results[1],
+          focusSessions: results[2],
+        };
+        if (!savedBaseline) {
+          saveUserCloudBaseline(user.id, offlineBaseline);
         }
-        offlineLoadRef.current = null;
+
+        // Merge only collections that differ from the last confirmed cloud state.
+        // Untouched local rows then follow remote changes/deletions, while local
+        // edits made during a failed save are preserved for the next sync attempt.
+        if (!areRecordsEqual(cachedTasks, offlineBaseline.tasks)) {
+          nextTasks = mergeOfflineCollection(nextTasks, cachedTasks, offlineBaseline.tasks);
+        }
+        if (!areRecordsEqual(cachedTimetable, offlineBaseline.timetable)) {
+          nextTimetable = mergeOfflineCollection(nextTimetable, cachedTimetable, offlineBaseline.timetable);
+        }
+        if (!areRecordsEqual(cachedFocusSessions, offlineBaseline.focusSessions)) {
+          nextFocusSessions = mergeOfflineCollection(nextFocusSessions, cachedFocusSessions, offlineBaseline.focusSessions);
+        }
 
         if (nextTasks.length === 0 && cachedTasks.length > 0) {
           await syncUserCollection("tasks", user.id, cachedTasks);
@@ -355,12 +360,6 @@ function App() {
         const cachedTasks = loadUserTasks(user.id);
         const cachedTimetable = loadUserTimetable(user.id);
         const cachedFocusSessions = loadUserFocusSessions(user.id);
-        offlineLoadRef.current = {
-          userId: user.id,
-          tasks: cachedTasks,
-          timetable: cachedTimetable,
-          focusSessions: cachedFocusSessions,
-        };
         setTasks(cachedTasks);
         setTimetable(cachedTimetable);
         setFocusSessions(cachedFocusSessions);
