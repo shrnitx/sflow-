@@ -31,6 +31,12 @@ The React app uses these build-time variables:
 
 A publishable key is meant for frontend use. Never put a Supabase **secret** or **service_role** key in React code or any `REACT_APP_*` variable. Set production values in the hosting provider's environment settings. For local development, create `frontend/.env` using `frontend/.env.example` as a template.
 
-## Current data-storage limitation
+## Cloud data storage
 
-Authentication and app data are separate concerns. Tasks and timetable entries are currently stored in browser `localStorage`, not in a user-scoped cloud table. That means they do not sync across devices and are not isolated by account in the same browser. A later database migration should move those records to tables protected by Supabase Row Level Security, keyed to the authenticated user. Replacing the database is not necessary to fix email sending limits.
+Tasks and timetable entries now use account-scoped Supabase tables. Before deployment, open the Supabase SQL Editor, paste and run `supabase/migrations/20261011000100_studyflow_user_data.sql`, and rebuild the frontend with the correct `REACT_APP_SUPABASE_URL` and `REACT_APP_SUPABASE_PUBLISHABLE_KEY` values configured.
+
+The migration creates `studyflow_tasks` and `studyflow_timetable`, enables Row Level Security, and adds policies so each signed-in user can access only rows with their own `user_id`. Keep Row Level Security enabled. Never put a Supabase service-role key in React/browser code.
+
+The app caches data under a key specific to the signed-in user. If cloud tables are empty, cached data for that same user can be restored. Old browser-global data is only imported after a confirmation prompt; existing cloud data is not overwritten.
+
+After running the migration, sign in, add a task and a timetable entry, refresh, and confirm they remain. Then test with a second account to confirm data is isolated. If cloud sync fails, use the in-app retry button after checking the migration, environment variables, and connection. Replacing Supabase is not needed to fix email send limits.
