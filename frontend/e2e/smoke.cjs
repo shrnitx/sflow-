@@ -245,6 +245,41 @@ async function main() {
     await page.getByRole("heading", { name: "One thing at a time.", exact: true }).waitFor();
     process.stdout.write("PASS: Study Coach workspace opens\n");
 
+    await page.getByRole("button", { name: "Daily plan", exact: true }).click();
+    await page.getByRole("button", { name: "Build my day", exact: true }).click();
+    await page.locator(".sfw-body .sfw-plan-list, .sfw-body .sfw-empty-large").waitFor();
+    process.stdout.write("PASS: Study Coach daily-plan generation\n");
+
+    await page.getByRole("button", { name: "Exams & syllabus", exact: true }).click();
+    await page.getByPlaceholder("e.g. Physics mid-sem").fill("Study Coach Biology Exam");
+    await page.getByLabel("Exam date").fill(futureDate(20));
+    await page.getByRole("button", { name: "Save exam", exact: true }).click();
+    await page.getByText("Study Coach Biology Exam", { exact: true }).waitFor();
+    await page.getByPlaceholder("e.g. Chemistry").fill("Biology");
+    await page.getByPlaceholder("e.g. Chemical kinetics").fill("Cell division review");
+    await page.getByRole("button", { name: "Add topic", exact: true }).click();
+    await page.getByText("Cell division review", { exact: true }).waitFor();
+    process.stdout.write("PASS: Study Coach exam and spaced-syllabus setup\n");
+
+    await page.getByRole("button", { name: "Assistant", exact: true }).click();
+    await page.locator("#sfw-question").fill("Help me prepare for my next exam.");
+    await page.getByRole("button", { name: "Ask", exact: true }).click();
+    await page.locator(".sfw-chat-msg.is-assistant").last().waitFor();
+    process.stdout.write("PASS: Study Coach assistant uses saved study context\n");
+
+    await page.getByRole("button", { name: "Reminders", exact: true }).click();
+    await page.locator("#sfw-reminder-time").fill("10:15");
+    await page.getByRole("button", { name: "Analytics", exact: true }).click();
+    await page.getByRole("heading", { name: "Your study week, in facts.", exact: true }).waitFor();
+    process.stdout.write("PASS: Study Coach reminders and analytics tabs\n");
+
+    await page.getByRole("button", { name: "Focus", exact: true }).last().click();
+    const coachTimerButtons = page.locator(".sfw-button-row");
+    await coachTimerButtons.getByRole("button", { name: "Start focus", exact: true }).click();
+    await coachTimerButtons.getByRole("button", { name: "Pause", exact: true }).click();
+    await coachTimerButtons.getByRole("button", { name: "Reset", exact: true }).click();
+    process.stdout.write("PASS: Study Coach task-linked focus timer controls\n");
+
     await page.getByRole("button", { name: "Settings", exact: true }).click();
     await page.getByLabel("Enable quiet hours").check();
     await page.locator("#quiet-hours-start").fill("21:00");
