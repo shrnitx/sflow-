@@ -53,6 +53,20 @@ function quietHoursActive(userId, now = new Date()) {
     : current >= start || current < end;
 }
 
+function sessionDate(session) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(session?.date || ""))) {
+    return session.date;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(String(session?.localDate || ""))) {
+    return session.localDate;
+  }
+
+  const timestamp = Date.parse(
+    session?.startedAt || session?.finishedAt || session?.endedAt || session?.createdAt || ""
+  );
+  return Number.isFinite(timestamp) ? dateKey(new Date(timestamp)) : "";
+}
+
 function clockLabel(value) {
   const [hours, minutes] = String(value || "00:00").split(":").map(Number);
   const date = new Date();
@@ -428,12 +442,16 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
     event.preventDefault();
     const text = question.trim();
     if (!text) return;
-    const answer = createAssistantReply(text, tasks, exams, syllabus, sessions);
+    const answer = createAssistantReply(text, tasks, exams, syllabus, normalizedSessions);
     setMessages((current) => [...current, { id: makeId(), role: "user", text }, { id: makeId(), role: "assistant", text: answer }].slice(-20));
     setQuestion("");
   };
 
-  const todayMinutes = sessions.filter((session) => session.date === dateKey()).reduce((sum, session) => sum + Number(session.durationMinutes || 0), 0);
+  const todayMinutes = sessions.filter((session) => sessionDate(session) === dateKey()).reduce((sum, session) => sum + Number(session.durationMinutes || 0), 0);
+  const normalizedSessions = useMemo(
+    () => sessions.map((session) => ({ ...session, date: sessionDate(session) })),
+    [sessions]
+  );
   const dueReviews = syllabus.filter((item) => !item.completed && item.nextReviewAt && item.nextReviewAt <= dateKey());
   const examProgress = (exam) => {
     const related = syllabus.filter((topic) => topic.subject.toLowerCase() === String(exam.subject || "").toLowerCase());
@@ -446,15 +464,15 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
       date.setHours(0, 0, 0, 0);
       date.setDate(date.getDate() - (6 - index));
       const key = dateKey(date);
-      return { key, label: date.toLocaleDateString(undefined, { weekday: "short" }), minutes: sessions.filter((session) => session.date === key).reduce((sum, session) => sum + Number(session.durationMinutes || 0), 0) };
+      return { key, label: date.toLocaleDateString(undefined, { weekday: "short" }), minutes: sessions.filter((session) => sessionDate(session) === key).reduce((sum, session) => sum + Number(session.durationMinutes || 0), 0) };
     });
     const max = Math.max(60, ...days.map((day) => day.minutes));
     const subjects = {};
-    sessions.filter((session) => session.date >= days[0].key && session.date <= days[6].key).forEach((session) => {
+    sessions.filter((session) => sessionDate(session) >= days[0].key && sessionDate(session) <= days[6].key).forEach((session) => {
       const subject = session.subject || "Uncategorized";
       subjects[subject] = (subjects[subject] || 0) + Number(session.durationMinutes || 0);
     });
-    const activeDays = new Set(sessions.map((session) => session.date));
+    const activeDays = new Set(sessions.map(sessionDate).filter(Boolean));
     let streak = 0;
     const cursor = new Date();
     cursor.setHours(0, 0, 0, 0);
@@ -549,7 +567,7 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
         <div className="sfw-assistant-note"><ShieldCheck size={17} /><span>This version uses your saved data and local planning rules. No external AI model or API key is connected, so chat stays in this app.</span></div>
         <div className="sfw-suggestions">{["What should I study first today?","Help me prepare for my next exam.","I have 60 minutes. What fits?","How is my progress this week?"].map((prompt) => <button type="button" key={prompt} onClick={() => setQuestion(prompt)}><Sparkles size={13} />{prompt}</button>)}</div>
         <div className="sfw-chat" aria-live="polite">{messages.length ? messages.map((message) => <div className={"sfw-chat-msg is-"+message.role} key={message.id}><small>{message.role === "assistant" ? "StudyFlow" : "You"}</small><p>{message.text}</p></div>) : <div className="sfw-empty sfw-empty-large"><BrainCircuit size={25} /><strong>Your study context is ready</strong><span>Suggestions use real tasks, exams, revisions and logged focus sessions.</span></div>}</div>
-        <form className="sfw-chat-form" onSubmit={(event) => { event.preventDefault(); const text = question.trim(); if (!text) return; const answer = createAssistantReply(text,tasks,exams,syllabus,sessions); setMessages((current) => [...current,{id:makeId(),role:"user",text},{id:makeId(),role:"assistant",text:answer}].slice(-20)); setQuestion(""); }}><label className="sr-only" htmlFor="sfw-question">Ask StudyFlow</label><input id="sfw-question" value={question} maxLength={400} placeholder="e.g. I have 45 minutes before class..." onChange={(event) => setQuestion(event.target.value)} /><button className="primary-button" type="submit" disabled={!question.trim()}><Sparkles size={15} />Ask</button></form>
+        <form className="sfw-chat-form" onSubmit={(event) => { event.preventDefault(); const text = question.trim(); if (!text) return; const answer = createAssistantReply(text,tasks,exams,syllabus,normalizedSessions); setMessages((current) => [...current,{id:makeId(),role:"user",text},{id:makeId(),role:"assistant",text:answer}].slice(-20)); setQuestion(""); }}><label className="sr-only" htmlFor="sfw-question">Ask StudyFlow</label><input id="sfw-question" value={question} maxLength={400} placeholder="e.g. I have 45 minutes before class..." onChange={(event) => setQuestion(event.target.value)} /><button className="primary-button" type="submit" disabled={!question.trim()}><Sparkles size={15} />Ask</button></form>
         {messages.length > 0 && <button className="sfw-clear-chat" type="button" onClick={() => setMessages([])}>Clear conversation</button>}
       </div>}
 
