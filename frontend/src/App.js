@@ -171,6 +171,7 @@ function App() {
   const [dataSyncing, setDataSyncing] = useState(false);
   const [dataSyncError, setDataSyncError] = useState("");
   const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" ? true : navigator.onLine);
+  const [installPrompt, setInstallPrompt] = useState(null);
 
   const [tasks, setTasks] = useState(() => {
     try {
@@ -206,6 +207,15 @@ function App() {
     setActiveSection("home");
     offlineLoadRef.current = null;
   }, [user?.id]);
+
+  useEffect(() => {
+    const handleInstallPrompt = (event) => {
+      event.preventDefault();
+      setInstallPrompt(event);
+    };
+    window.addEventListener("beforeinstallprompt", handleInstallPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", handleInstallPrompt);
+  }, []);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -677,6 +687,24 @@ function App() {
     setTasks((current) => [...items, ...current]);
   };
 
+  const promptInstall = async () => {
+    if (!installPrompt) {
+      setToast("To install StudyFlow, open your browser menu and choose Install app or Add to Home screen.");
+      return;
+    }
+
+    try {
+      await installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      setToast(choice?.outcome === "accepted" ? "StudyFlow installation started." : "Installation was cancelled.");
+    } catch (error) {
+      console.warn("StudyFlow install prompt failed:", error);
+      setToast("Could not open the install prompt. Use your browser menu to install StudyFlow.");
+    } finally {
+      setInstallPrompt(null);
+    }
+  };
+
   const retryCloudSync = () => {
     if (cloudReadyFor === user?.id) {
       // After a successful load, retry the current local state rather than
@@ -915,13 +943,18 @@ function App() {
                 <span className={isOnline ? "offline-state-dot is-online" : "offline-state-dot"} />
                 <strong>{isOnline ? "Internet connection available" : "Offline · browser cache in use"}</strong>
               </div>
-              <button
-                type="button"
-                className="ghost-button"
-                onClick={retryCloudSync}
-              >
-                <RotateCcw size={16} /> Retry cloud sync
-              </button>
+              <div className="offline-settings-actions">
+                <button type="button" className="primary-button" onClick={promptInstall}>
+                  <Download size={16} /> {installPrompt ? "Install StudyFlow" : "Install / add to home screen"}
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={retryCloudSync}
+                >
+                  <RotateCcw size={16} /> Retry cloud sync
+                </button>
+              </div>
               <p className="offline-settings-footnote">Offline access depends on a previous successful load in this browser. Push notifications while the app is fully closed require a separate push service.</p>
             </section>
           </section>
