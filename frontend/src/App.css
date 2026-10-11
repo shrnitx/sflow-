@@ -1655,3 +1655,700 @@ select {
     min-height: 52px;
   }
 }
+
+
+/* Expanded StudyFlow tools */
+.timetable-panel-heading {
+  align-items: flex-start;
+}
+
+.timetable-calendar-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.timetable-calendar-actions .ghost-button {
+  white-space: nowrap;
+}
+
+.timetable-entry-notes {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.timetable-meeting-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  color: var(--brown);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-decoration: underline;
+}
+
+.class-details-course-code {
+  display: inline-flex;
+  margin-top: 5px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: #efe2bd;
+  color: var(--brown);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.class-profile-details {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 15px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(255, 250, 237, 0.7);
+}
+
+.class-profile-detail {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  color: var(--brown);
+}
+
+.class-profile-detail > div {
+  display: grid;
+  gap: 3px;
+}
+
+.class-profile-detail span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.class-profile-detail strong {
+  color: var(--ink);
+  font-size: 0.87rem;
+  overflow-wrap: anywhere;
+}
+
+.class-profile-notes {
+  margin: 0;
+  color: #654721;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.class-profile-meeting-link {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 7px;
+  color: var(--brown);
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.class-profile-meeting-link:hover {
+  text-decoration: underline;
+}
+
+.class-details-task-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #efe2bd;
+  color: var(--brown);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.related-task-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.quick-add-panel,
+.exam-planner-panel,
+.focus-panel,
+.focus-analytics-panel,
+.focus-history-panel,
+.reminder-panel,
+.offline-settings-panel {
+  padding: 24px;
+  margin-bottom: 18px;
+}
+
+.quick-add-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.quick-add-icon,
+.focus-heading-icon,
+.exam-planner-icon,
+.reminder-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #efe2bd;
+  color: var(--brown);
+}
+
+.quick-add-heading h2,
+.exam-planner-panel h2,
+.reminder-panel h2,
+.focus-panel h2,
+.focus-analytics-panel h2,
+.focus-history-panel h2,
+.offline-settings-panel h2 {
+  margin: 5px 0 0;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.65rem;
+}
+
+.quick-add-heading p,
+.exam-planner-intro,
+.focus-description,
+.reminder-intro,
+.offline-settings-panel > p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.quick-add-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 9px;
+  margin-top: 17px;
+}
+
+.quick-add-form input {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 13px;
+  border: 1px solid var(--line-dark);
+  border-radius: 11px;
+  outline: none;
+  background: rgba(255, 252, 241, 0.92);
+  color: var(--ink);
+}
+
+.quick-add-form input:focus {
+  border-color: #b98842;
+  box-shadow: 0 0 0 4px rgba(185, 136, 66, 0.14);
+}
+
+.quick-add-help,
+.quick-add-caution {
+  margin: 9px 0 0;
+  color: #8b7152;
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.quick-add-caution {
+  color: #8a5717;
+}
+
+.quick-add-preview {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 250, 237, 0.78);
+}
+
+.quick-add-preview > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.quick-add-preview span {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.quick-add-preview strong {
+  color: var(--ink);
+  font-size: 0.82rem;
+  overflow-wrap: anywhere;
+}
+
+.exam-planner-icon {
+  flex: 0 0 42px;
+}
+
+.exam-planner-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(200px, 0.7fr);
+  gap: 15px;
+  margin-top: 18px;
+}
+
+.exam-planner-form .field.full,
+.exam-planner-error,
+.exam-planner-actions {
+  grid-column: 1 / -1;
+}
+
+.exam-planner-form textarea {
+  width: 100%;
+  min-height: 100px;
+  padding: 11px 13px;
+  border: 1px solid var(--line-dark);
+  border-radius: 12px;
+  outline: none;
+  background: rgba(255, 252, 241, 0.92);
+  color: var(--ink);
+  resize: vertical;
+  font: inherit;
+}
+
+.exam-planner-form textarea:focus {
+  border-color: #b98842;
+  box-shadow: 0 0 0 4px rgba(185, 136, 66, 0.14);
+}
+
+.exam-planner-form textarea::placeholder {
+  color: #af956e;
+}
+
+.exam-planner-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.exam-planner-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 13px;
+  color: var(--muted);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.exam-planner-note svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.dashboard-settings-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 18px;
+}
+
+.reminder-panel .panel-heading,
+.offline-settings-panel .panel-heading {
+  align-items: flex-start;
+}
+
+.reminder-icon {
+  flex: 0 0 42px;
+}
+
+.reminder-settings-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 17px 0;
+}
+
+.reminder-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4d6943;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.reminder-last-notice {
+  margin: 10px 0 0;
+  color: #4d6943;
+  font-size: 0.74rem;
+}
+
+.reminder-footnote,
+.reminder-upcoming {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin-top: 15px;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.reminder-footnote svg,
+.reminder-upcoming svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.reminder-upcoming {
+  color: var(--brown);
+}
+
+.offline-state-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 19px 0;
+  font-size: 0.82rem;
+  color: var(--ink);
+}
+
+.offline-state-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: #b46a45;
+  box-shadow: 0 0 0 4px rgba(180, 106, 69, 0.12);
+}
+
+.offline-state-dot.is-online {
+  background: #608353;
+  box-shadow: 0 0 0 4px rgba(96, 131, 83, 0.12);
+}
+
+.offline-settings-footnote {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  line-height: 1.55;
+}
+
+.focus-page {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 18px;
+}
+
+.focus-panel {
+  grid-column: 1 / -1;
+}
+
+.focus-heading-icon {
+  flex: 0 0 42px;
+}
+
+.focus-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 13px;
+  margin: 19px 0 10px;
+}
+
+.focus-timer-layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  align-items: center;
+  gap: 22px;
+  margin-top: 15px;
+  padding: 21px;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: rgba(255, 250, 237, 0.62);
+}
+
+.focus-clock {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 200px;
+  max-width: 100%;
+  aspect-ratio: 1;
+  margin: auto;
+}
+
+.focus-clock svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  transform: rotate(-90deg);
+}
+
+.focus-clock-track,
+.focus-clock-progress {
+  fill: none;
+  stroke-width: 9;
+}
+
+.focus-clock-track {
+  stroke: #eadbb9;
+}
+
+.focus-clock-progress {
+  stroke: var(--brown);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 400ms ease;
+}
+
+.focus-clock-time {
+  position: absolute;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+
+.focus-clock-time strong {
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(2rem, 4vw, 2.65rem);
+  font-family: "Fraunces", Georgia, serif;
+  letter-spacing: -0.04em;
+}
+
+.focus-clock-time span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-align: center;
+}
+
+.focus-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.focus-actions .primary-button,
+.focus-actions .ghost-button {
+  min-height: 45px;
+}
+
+.focus-complete-note {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  color: #4d6943;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.focus-week-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 17px;
+}
+
+.focus-week-summary > div {
+  display: grid;
+  gap: 5px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: rgba(255, 250, 237, 0.76);
+}
+
+.focus-week-summary strong {
+  font-family: "Fraunces", Georgia, serif;
+  color: var(--brown);
+  font-size: 1.7rem;
+}
+
+.focus-week-summary span {
+  color: var(--muted);
+  font-size: 0.73rem;
+}
+
+.focus-empty-analytics {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px dashed var(--line-dark);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.focus-subject-bars {
+  display: grid;
+  gap: 14px;
+  margin-top: 19px;
+}
+
+.focus-subject-row {
+  display: grid;
+  gap: 7px;
+}
+
+.focus-subject-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ink);
+  font-size: 0.78rem;
+}
+
+.focus-subject-label span {
+  overflow-wrap: anywhere;
+}
+
+.focus-subject-label strong {
+  color: var(--muted);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.focus-subject-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eadbb9;
+}
+
+.focus-subject-track > div {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brown);
+}
+
+.focus-history-panel {
+  grid-column: 1 / -1;
+}
+
+.focus-session-history {
+  display: grid;
+  gap: 0;
+  margin-top: 13px;
+}
+
+.focus-session-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 13px;
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(217, 201, 165, 0.7);
+}
+
+.focus-session-item:last-child {
+  border-bottom: 0;
+}
+
+.focus-session-item > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.focus-session-item strong {
+  color: var(--ink);
+  font-size: 0.83rem;
+  overflow-wrap: anywhere;
+}
+
+.focus-session-item span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.focus-session-item > strong {
+  white-space: nowrap;
+  color: var(--brown);
+}
+
+@media (max-width: 950px) {
+  .dashboard-settings-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .focus-timer-layout {
+    grid-template-columns: 190px minmax(0, 1fr);
+    padding: 17px;
+  }
+
+  .focus-clock {
+    width: 180px;
+  }
+}
+
+@media (max-width: 680px) {
+  .timetable-panel-heading {
+    flex-direction: column;
+  }
+
+  .timetable-calendar-actions {
+    justify-content: flex-start;
+  }
+
+  .quick-add-panel,
+  .exam-planner-panel,
+  .focus-panel,
+  .focus-analytics-panel,
+  .focus-history-panel,
+  .reminder-panel,
+  .offline-settings-panel {
+    padding: 18px;
+  }
+
+  .quick-add-form {
+    grid-template-columns: 1fr;
+  }
+
+  .quick-add-preview {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .exam-planner-form,
+  .reminder-settings-row,
+  .focus-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .focus-page {
+    grid-template-columns: 1fr;
+  }
+
+  .focus-timer-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .focus-actions {
+    justify-content: center;
+  }
+
+  .focus-actions > button {
+    flex: 1 1 100%;
+  }
+
+  .focus-week-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+}
