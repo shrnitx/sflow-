@@ -86,6 +86,22 @@ select {
   font-size: 1rem;
 }
 
+.hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.account-email {
+  max-width: 240px;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-align: right;
+}
+
 .today-chip {
   display: inline-flex;
   align-items: center;
@@ -1000,6 +1016,14 @@ select {
   .hero {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .hero-actions {
+    justify-content: flex-start;
+  }
+
+  .account-email {
+    text-align: left;
   }
 
   .today-chip {
