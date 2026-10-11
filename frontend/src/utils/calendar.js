@@ -254,7 +254,7 @@ export function parseStudyFlowCalendar(text) {
     tasks.push({
       id: "",
       type: exam ? "exam" : "task",
-      title: title.replace(/^(?:exam|quiz|viva):\s*/i, ""),
+      title: title.replace(/^(?:task|assignment|exam|quiz|viva):\s*/i, ""),
       deadline: start.date,
       subject: "Other",
       description: event.DESCRIPTION?.text || "",
