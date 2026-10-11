@@ -508,7 +508,7 @@ function Timetable({ timetable, setTimetable, setToast, tasks = [], onImportTask
 
                       <div className="timetable-entry-subject">
                         <strong>
-                          {item.courseCode ? item.courseCode + " · " : ""}{item.subject}
+                          {item.courseCode && item.courseCode.toLowerCase() !== item.subject.toLowerCase() ? item.courseCode + " · " : ""}{item.subject}
                         </strong>
                         <span>
                           {item.instructor || item.room
