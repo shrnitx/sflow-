@@ -558,12 +558,14 @@ function extractSingleDayCards(rows) {
     const codeMatch = codeLine?.text.match(courseCodePattern);
     const isInstructor = (line) => /^(?:Dr\.?|Prof\.?|Mr\.?|Mrs\.?|Ms\.?)\s+/i.test(line.text);
     const isRoom = (line) => /^(?:LT|CR|LAB|ROOM)\s*[-/]?\s*[A-Z0-9-]+$/i.test(line.text);
+
+    // A course code is metadata, not necessarily the human-readable subject.
+    // Prefer a separate title line, or remove the code from a combined line.
     const titleLine = usefulLines.find((line) => {
       if (isInstructor(line) || isRoom(line)) return false;
-      // Prefer the actual course title if one is separate from the code.
       if (codeLine && line !== codeLine) return true;
       if (codeMatch) {
-        const remaining = line.text.replace(codeMatch[0], " ").replace(/[\s:;–—-]+/g, " ").trim();
+        const remaining = line.text.replace(codeMatch[0], "").replace(/[\s:;–—-]+/g, " ").trim();
         return remaining.length >= 3;
       }
       return true;
@@ -571,27 +573,9 @@ function extractSingleDayCards(rows) {
     if (!titleLine) return;
 
     const titleWithoutCode = codeMatch
-      ? titleLine.text.replace(codeMatch[0], " ").replace(/[\s:;–—-]+/g, " ").trim()
+      ? titleLine.text.replace(codeMatch[0], "").replace(/[\s:;–—-]+/g, " ").trim()
       : titleLine.text;
-    const extractedTitle = cleanSubject(titleLine.words.filter((word) =>
-      !codeMatch || !new RegExp(
-        "^" + codeMatch[0].replace(/[.*+?^$()|[\]\\]/g, "\\    const courseCodePattern = /\b[A-Z]{2,}[A-Z0-9]*\s*-?\s*\d{2,}[A-Z0-9]*\b/i;
-    const codeLine = usefulLines.find((line) => courseCodePattern.test(line.text));
-    const subjectLine = codeLine || usefulLines.find((line) =>
-      !/^(?:Dr\.?|Prof\.?|Mr\.?|Mrs\.?|Ms\.?)\b/i.test(line.text) &&
-      !/^(?:LT|CR|LAB|ROOM)\s*[-/]?\s*\d+/i.test(line.text)
-    );
-    if (!subjectLine) return;
-
-    const codeMatch = codeLine?.text.match(courseCodePattern);
-    const subject = (codeMatch?.[0] || cleanSubject(subjectLine.words)).trim();
-    if (!subject || /^(?:break|lunch|recess|free period|holiday|no class)$/i.test(subject)) {
-      return;
-    }") + "$",
-        "i"
-      ).test(word.text)
-    ));
-    const subject = (titleWithoutCode.length >= 3 ? titleWithoutCode : extractedTitle || codeMatch?.[0] || "").trim();
+    const subject = (titleWithoutCode.length >= 3 ? titleWithoutCode : cleanSubject(titleLine.words) || codeMatch?.[0] || "").trim();
     if (!subject || /^(?:break|lunch|recess|free period|holiday|no class)$/i.test(subject)) {
       return;
     }
