@@ -1134,3 +1134,253 @@ select {
     flex-direction: column;
   }
 }
+
+
+.timetable-import {
+  margin: 22px 0 24px;
+  padding: 18px;
+  border: 1px dashed var(--line-dark);
+  border-radius: 16px;
+  background: rgba(245, 236, 216, 0.45);
+}
+
+.timetable-import-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.timetable-import-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #efe2bd;
+  color: var(--brown);
+}
+
+.timetable-import-heading h3 {
+  margin: 0;
+  color: var(--ink);
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.08rem;
+}
+
+.timetable-import-heading p,
+.timetable-import-review-heading p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.timetable-import-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.timetable-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.timetable-file-input:focus-visible + .timetable-upload-button {
+  outline: 3px solid rgba(185, 136, 66, 0.36);
+  outline-offset: 3px;
+}
+
+.timetable-upload-button {
+  cursor: pointer;
+}
+
+.timetable-file-name {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.timetable-ocr-progress {
+  margin-top: 14px;
+}
+
+.timetable-ocr-progress-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.timetable-ocr-progress-label strong {
+  margin-left: auto;
+  color: var(--brown);
+  font-variant-numeric: tabular-nums;
+}
+
+.timetable-ocr-progress-track {
+  height: 7px;
+  overflow: hidden;
+  margin-top: 8px;
+  border-radius: 999px;
+  background: #eadbb9;
+}
+
+.timetable-ocr-progress-track > div {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--brown);
+  transition: width 180ms ease;
+}
+
+.timetable-spinner {
+  flex: 0 0 auto;
+  animation: timetable-spin 1s linear infinite;
+}
+
+@keyframes timetable-spin {
+  to { transform: rotate(360deg); }
+}
+
+.timetable-import-error {
+  margin-top: 13px;
+  padding: 11px 12px;
+  border: 1px solid #edc1af;
+  border-radius: 10px;
+  background: #fff0e8;
+  color: #8a3415;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.timetable-import-review {
+  margin-top: 18px;
+  padding-top: 17px;
+  border-top: 1px solid var(--line);
+}
+
+.timetable-import-review-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+
+.timetable-import-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin: 14px 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.timetable-import-mode label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+}
+
+.timetable-import-mode input {
+  accent-color: var(--brown);
+}
+
+.timetable-import-rows {
+  display: grid;
+  gap: 10px;
+}
+
+.timetable-import-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.4fr) minmax(115px, 0.9fr) minmax(105px, 0.8fr) minmax(105px, 0.8fr) 32px;
+  align-items: end;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 251, 240, 0.86);
+}
+
+.timetable-import-row .field label {
+  margin-bottom: 5px;
+  font-size: 0.73rem;
+}
+
+.timetable-import-row .field input,
+.timetable-import-row .field select {
+  min-height: 40px;
+  padding: 0 9px;
+  font-size: 0.82rem;
+}
+
+.timetable-import-remove {
+  margin-bottom: 2px;
+}
+
+.timetable-import-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 15px;
+}
+
+.timetable-import-privacy {
+  margin: 12px 0 0;
+  color: #8b7152;
+  font-size: 0.72rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 900px) {
+  .timetable-import-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .timetable-import-subject {
+    grid-column: 1 / -1;
+  }
+
+  .timetable-import-remove {
+    grid-column: 2;
+    justify-self: end;
+  }
+}
+
+@media (max-width: 560px) {
+  .timetable-import {
+    padding: 13px;
+  }
+
+  .timetable-import-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    padding: 10px;
+  }
+
+  .timetable-import-subject {
+    grid-column: 1 / -1;
+  }
+
+  .timetable-import-remove {
+    grid-column: 2;
+    justify-self: end;
+  }
+
+  .timetable-import-actions > button {
+    flex: 1 1 100%;
+  }
+}
