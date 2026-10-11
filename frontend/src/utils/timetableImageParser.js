@@ -342,11 +342,36 @@ function clusterTimeTokens(tokens, threshold) {
 function extractTransposedTimetable(rows) {
   const candidateRows = rows.map((row) => {
     const tokens = positionedTimeTokens(row.words);
-    const threshold = Math.max(
-      55,
-      Math.min(120, median(tokens.map((token) => token.height)) * 5.2)
-    );
-    const columns = clusterTimeTokens(tokens, threshold);
+    const rowText = [...row.words]
+      .sort((a, b) => centerX(a) - centerX(b))
+      .map((word) => word.text)
+      .join(" ");
+    const hasExplicitRanges =
+      /\\d{1,2}\\s*[:.]\\s*\\d{2}\\s*(?:a\\.?m\\.?|p\\.?m\\.?)?\\s*[-–—]\\s*\\d{1,2}\\s*[:.]\\s*\\d{2}/i.test(rowText);
+
+    let columns;
+    if (hasExplicitRanges && tokens.length >= 4) {
+      // Pair time tokens in reading order when the header explicitly shows
+      // ranges such as 09:00-09:50 in each period cell.
+      columns = [];
+      for (let index = 0; index + 1 < tokens.length; index += 2) {
+        const start = tokens[index];
+        const end = tokens[index + 1];
+        if (end.minutes > start.minutes) {
+          columns.push({
+            x: (start.x + end.x) / 2,
+            times: [start.minutes, end.minutes],
+          });
+        }
+      }
+    } else {
+      const threshold = Math.max(
+        42,
+        Math.min(84, median(tokens.map((token) => token.height)) * 3.8)
+      );
+      columns = clusterTimeTokens(tokens, threshold);
+    }
+
     return { row, tokens, columns };
   });
 
