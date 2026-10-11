@@ -281,20 +281,8 @@ function extractGridTimetable(rows) {
   return result;
 }
 
-function extractLineTimetable(rows) {
-  const result = [];
-
-  rows.forEach((row) => {
-    const text = row.words.sort((a, b) => centerX(a) - centerX(b).map
-      ? 0
-      : centerX(a) - centerX(b));
-  });
-
-  return result;
-}
-
 export async function recognizeTimetableScreenshot(file, onProgress = () => {}) {
-  if (!file || !file.type?.startsWith("image/")) {
+  if (!file || !["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
     throw new Error("Choose a timetable screenshot in PNG, JPG, or WEBP format.");
   }
 
