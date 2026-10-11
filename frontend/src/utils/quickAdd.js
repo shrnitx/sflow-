@@ -121,7 +121,7 @@ export function parseQuickEntry(input, knownSubjects = []) {
     .trim();
 
   if (!title) {
-    return { error: 'I couldn\\'t find a task name. Add a short description, such as "Biology assignment due Friday, high priority".' };
+    return { error: "I couldn't find a task name. Add a short description, such as \"Biology assignment due Friday, high priority\"." };
   }
 
   return {
