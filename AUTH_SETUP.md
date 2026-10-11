@@ -39,6 +39,26 @@ The importer explicitly requests Tesseract.js v6 block output and extracts words
 
 Detected classes appear in an editable review list before anything changes. Users can add entries to the current timetable (exact duplicates are skipped) or choose to replace the timetable after a confirmation. Screenshot layouts vary, so the parsed day/subject/time values should be checked before import. For best results, use a sharp, full screenshot with weekday headings and clear time labels.
 
+
+## Dashboard features
+
+The authenticated app opens on **Overview**, which is intentionally limited to today's class information and upcoming exam alerts. The navigation keeps Timetable, Tasks, Exams, Focus, and Settings separate.
+
+- **Class profiles:** optionally save a course code, faculty name, room/venue, notes/material links, and online meeting URL with each weekly class. Tasks can link to a timetable class.
+- **Calendar import/export:** import a standard `.ics` file into the timetable/tasks or export the current weekly classes and dated tasks/exams as an `.ics` file. Weekly recurring classes are supported; one-off calendar events are imported as dated tasks/reminders rather than becoming weekly classes.
+- **Quick Add:** describe a task using text such as `Biology assignment due Friday, high priority`. The preview indicates which fields were recognized; date and subject detection are heuristic, so check the result before relying on it.
+- **Exam preparation:** choose an upcoming exam, enter syllabus topics, and generate revision tasks before its date. Generated sessions appear under Tasks so they can be edited or marked complete.
+- **Focus mode and analytics:** use a 25-, 40-, or 50-minute timer. Completed sessions are saved to the signed-in user's `studyflow_focus_sessions` table, protected by RLS, and summarized by subject for the current week.
+- **Reminders:** in Settings, enable browser notifications and choose when to be reminded about classes, task deadlines, and exams. Notification permission is browser-specific. These reminders run while StudyFlow is open; notifications while the app is fully closed require a separate push-notification service and credentials.
+- **Offline/PWA:** the web app includes an installable manifest and a service worker that caches the app shell and built JS/CSS assets. Task, timetable, and focus changes are also written to an account-specific local cache. When connectivity returns after a cloud write error, retry cloud sync; when the initial cloud load failed, the recovery flow merges the local snapshot with cloud records without treating absent remote records as deletions unless they existed in the local baseline.
+- **Study analytics:** focus totals represent completed timer sessions, not passive time with the app open.
+
+## Additional Supabase migration
+
+The focus-session feature uses `public.studyflow_focus_sessions`. The migration `supabase/migrations/20261011000200_focus_sessions.sql` creates the table and user-only Row Level Security policies. It has been applied to the currently connected Supabase project. If deploying to a different Supabase project, run both SQL migration files in order before deploying this branch.
+
+The app does not include a Google Calendar OAuth connection or closed-app push server because those need external OAuth/VAPID credentials. Calendar interoperability is provided through standard `.ics` import/export.
+
 ## Cloud data storage
 
 Tasks and timetable entries now use account-scoped Supabase tables. Before deployment, open the Supabase SQL Editor, paste and run `supabase/migrations/20261011000100_studyflow_user_data.sql`, and rebuild the frontend with the correct `REACT_APP_SUPABASE_URL` and `REACT_APP_SUPABASE_PUBLISHABLE_KEY` values configured.
