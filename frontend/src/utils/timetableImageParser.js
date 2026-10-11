@@ -347,7 +347,7 @@ function extractTransposedTimetable(rows) {
       .map((word) => word.text)
       .join(" ");
     const hasExplicitRanges =
-      /\\d{1,2}\\s*[:.]\\s*\\d{2}\\s*(?:a\\.?m\\.?|p\\.?m\\.?)?\\s*[-–—]\\s*\\d{1,2}\\s*[:.]\\s*\\d{2}/i.test(rowText);
+      /\d{1,2}\s*[:.]\s*\d{2}\s*(?:a\.?m\.?|p\.?m\.?)?\s*[-–—]\s*\d{1,2}\s*[:.]\s*\d{2}/i.test(rowText);
 
     let columns;
     if (hasExplicitRanges && tokens.length >= 4) {
