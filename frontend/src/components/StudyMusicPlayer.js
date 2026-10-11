@@ -12,9 +12,9 @@ const SOURCES = {
   youtube: {
     label: "YouTube radio",
     title: "Lofi Girl · beats to relax / study to",
-    url: "https://www.youtube.com/watch?v=X4VbdwhkE10",
+    url: "https://www.youtube.com/watch?v=EWrX250Zhko",
     embedUrl:
-      "https://www.youtube-nocookie.com/embed/X4VbdwhkE10?autoplay=1&rel=0&modestbranding=1&playsinline=1",
+      "https://www.youtube-nocookie.com/embed/EWrX250Zhko?autoplay=1&rel=0&modestbranding=1&playsinline=1",
   },
   spotify: {
     label: "Spotify playlist",

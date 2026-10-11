@@ -1,0 +1,19 @@
+{
+  "name": "StudyFlow - Student Planner",
+  "short_name": "StudyFlow",
+  "description": "Your timetable, academic tasks, exam reminders, and focus sessions in one workspace.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f7edcf",
+  "theme_color": "#7a4b1c",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/studyflow-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

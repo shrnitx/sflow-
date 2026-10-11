@@ -26,3 +26,12 @@ root.render(
     </AuthProvider>
   </React.StrictMode>
 );
+
+// Register the offline shell only in secure browser contexts (HTTPS or localhost).
+if ("serviceWorker" in navigator && process.env.NODE_ENV === "production") {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/service-worker.js").catch((error) => {
+      console.warn("StudyFlow offline shell registration failed:", error);
+    });
+  });
+}

@@ -1,14 +1,18 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
-  Cloud,
-  CloudOff,
-  RefreshCw,
+  BrainCircuit,
   Check,
   CheckCircle2,
   Clock3,
+  Download,
   Flame,
   ListChecks,
+  House,
+  CalendarRange,
+  GraduationCap,
+  Timer,
+  Settings,
   Pencil,
   Plus,
   RotateCcw,
@@ -19,23 +23,40 @@ import {
 
 import {
   loadTasks,
-  saveTasks,
   loadTimetable,
-  saveTimetable,
+  loadUserTasks,
+  loadUserTimetable,
+  saveUserTasks,
+  saveUserTimetable,
+  loadUserFocusSessions,
+  saveUserFocusSessions,
+  loadUserCloudBaseline,
+  saveUserCloudBaseline,
+  wasLegacyMigrationReviewed,
+  markLegacyMigrationReviewed,
   makeId,
 } from "./utils/storage";
+
+import {
+  loadUserCollection,
+  syncUserCollection,
+} from "./utils/cloudStorage";
 
 import TodayClasses from "./components/TodayClasses";
 import ClassDetails from "./components/ClassDetails";
 import Timetable from "./components/Timetable";
+import ReminderSettings from "./components/ReminderSettings";
+import QuickAdd from "./components/QuickAdd";
+import ExamPrepPlanner from "./components/ExamPrepPlanner";
+import FocusMode from "./components/FocusMode";
 
 import Login from "./components/auth/login";
 import Signup from "./components/auth/signup";
 import { useAuth } from "./context/AuthContext";
-
+import { DAYS } from "./utils/timetable";
+import { areRecordsEqual, mergeOfflineCollection } from "./utils/offlineMerge";
 import StudyFlowHeroAnimation from "./components/StudyFlowHeroAnimation";
 import StudyFlowWorkspace from "./components/StudyFlowWorkspace";
-import useStudyFlowCloudSync from "./hooks/useStudyFlowCloudSync";
 import StudyMusicPlayer from "./components/StudyMusicPlayer";
 
 import "./App.css";
@@ -58,6 +79,7 @@ const EMPTY_FORM = {
   deadline: "",
   priority: "Medium",
   description: "",
+  classId: "",
 };
 
 function formatDeadline(value) {
@@ -98,9 +120,46 @@ function daysOverdue(task) {
   return Math.ceil((today - deadline) / 86400000);
 }
 
+function isExamItem(item) {
+  const type = String(item?.type || item?.category || "").toLowerCase();
+  if (type === "exam" || type === "examination") return true;
+  if (type === "task" || type === "assignment") return false;
+
+  // Older task records had no explicit type, so infer exam records conservatively.
+  return /\b(exam|examination|midterm|finals?|quiz|viva|practical exam)\b/i.test(
+    `${item?.title || ""} ${item?.description || ""}`
+  );
+}
+
+function getGreetingName(user) {
+  const metadata = user?.user_metadata || {};
+  const name = String(metadata.name || metadata.full_name || metadata.fullName || "").trim();
+  if (name) return name;
+  return user?.email?.split("@")[0] || "there";
+}
+
+function daysUntilDate(value) {
+  if (!value) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  return Math.round((date - today) / 86400000);
+}
+
 function App() {
-  const { user, loading } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const [showSignup, setShowSignup] = useState(false);
+  const [activeSection, setActiveSection] = useState("home");
+  const [focusSessions, setFocusSessions] = useState([]);
+  const [dataLoading, setDataLoading] = useState(false);
+  const [dataLoadedFor, setDataLoadedFor] = useState(null);
+  const [cloudReadyFor, setCloudReadyFor] = useState(null);
+  const [dataLoadAttempt, setDataLoadAttempt] = useState(0);
+  const [dataSyncing, setDataSyncing] = useState(false);
+  const [dataSyncError, setDataSyncError] = useState("");
+  const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" ? true : navigator.onLine);
+  const [installPrompt, setInstallPrompt] = useState(null);
 
   const [tasks, setTasks] = useState(() => {
     try {
@@ -132,15 +191,241 @@ function App() {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState(EMPTY_FORM);
 
-  const cloudSync = useStudyFlowCloudSync({ user, tasks, setTasks, timetable, setTimetable });
+  const currentCollectionsRef = useRef({ tasks, timetable, focusSessions });
+  currentCollectionsRef.current = { tasks, timetable, focusSessions };
 
   useEffect(() => {
-    saveTasks(tasks);
-  }, [tasks]);
+    setActiveSection("home");
+  }, [user?.id]);
 
   useEffect(() => {
-    saveTimetable(timetable);
-  }, [timetable]);
+    const handleInstallPrompt = (event) => {
+      event.preventDefault();
+      setInstallPrompt(event);
+    };
+    window.addEventListener("beforeinstallprompt", handleInstallPrompt);
+    return () => window.removeEventListener("beforeinstallprompt", handleInstallPrompt);
+  }, []);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      if (user?.id && cloudReadyFor === user.id) {
+        // Re-run the sync effect with the latest local state after reconnecting.
+        setDataSyncError("");
+      } else if (user?.id) {
+        setDataLoadAttempt((attempt) => attempt + 1);
+      }
+    };
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [user?.id, cloudReadyFor]);
+
+  useEffect(() => {
+    if (!user?.id) {
+      setDataLoadedFor(null);
+      setDataLoading(false);
+      setDataSyncError("");
+      return;
+    }
+
+    let cancelled = false;
+
+    const initializeUserData = async () => {
+      setDataLoading(true);
+      setCloudReadyFor(null);
+      setDataSyncError("");
+
+      try {
+        const results = await Promise.all([
+          loadUserCollection("tasks", user.id),
+          loadUserCollection("timetable", user.id),
+          loadUserCollection("focusSessions", user.id),
+        ]);
+
+        if (cancelled) return;
+
+        let nextTasks = results[0];
+        let nextTimetable = results[1];
+        let nextFocusSessions = results[2];
+
+        // A per-user cache may contain writes made while Supabase was unreachable.
+        // Restore it only when the cloud collection is empty; cloud data wins otherwise.
+        const cachedTasks = loadUserTasks(user.id);
+        const cachedTimetable = loadUserTimetable(user.id);
+        const cachedFocusSessions = loadUserFocusSessions(user.id);
+
+        // Compare this browser cache with the last confirmed cloud snapshot.
+        // Only merge local data when it actually changed since that snapshot.
+        // Otherwise the cloud wins, so deletions/edits from another device aren't
+        // undone by simply opening an older browser cache.
+        // If this account has no prior successful sync baseline, the just-read
+        // cloud collections are the first reliable reference point. Persist them
+        // before attempting any local-cache reconciliation.
+        const savedBaseline = loadUserCloudBaseline(user.id);
+        const offlineBaseline = savedBaseline || {
+          tasks: results[0],
+          timetable: results[1],
+          focusSessions: results[2],
+        };
+        if (!savedBaseline) {
+          saveUserCloudBaseline(user.id, offlineBaseline);
+        }
+
+        // Merge only collections that differ from the last confirmed cloud state.
+        // Untouched local rows then follow remote changes/deletions, while local
+        // edits made during a failed save are preserved for the next sync attempt.
+        if (!areRecordsEqual(cachedTasks, offlineBaseline.tasks)) {
+          nextTasks = mergeOfflineCollection(nextTasks, cachedTasks, offlineBaseline.tasks);
+        }
+        if (!areRecordsEqual(cachedTimetable, offlineBaseline.timetable)) {
+          nextTimetable = mergeOfflineCollection(nextTimetable, cachedTimetable, offlineBaseline.timetable);
+        }
+        if (!areRecordsEqual(cachedFocusSessions, offlineBaseline.focusSessions)) {
+          nextFocusSessions = mergeOfflineCollection(nextFocusSessions, cachedFocusSessions, offlineBaseline.focusSessions);
+        }
+
+        if (nextTasks.length === 0 && cachedTasks.length > 0) {
+          await syncUserCollection("tasks", user.id, cachedTasks);
+          nextTasks = cachedTasks;
+        }
+
+        if (nextTimetable.length === 0 && cachedTimetable.length > 0) {
+          await syncUserCollection("timetable", user.id, cachedTimetable);
+          nextTimetable = cachedTimetable;
+        }
+
+        if (nextFocusSessions.length === 0 && cachedFocusSessions.length > 0) {
+          await syncUserCollection("focusSessions", user.id, cachedFocusSessions);
+          nextFocusSessions = cachedFocusSessions;
+        }
+
+        // Older versions used shared browser keys. Never import them silently:
+        // ask the signed-in user, and only import into collections that are empty.
+        if (!wasLegacyMigrationReviewed()) {
+          const legacyTasks = loadTasks();
+          const legacyTimetable = loadTimetable();
+          const canImportTasks = nextTasks.length === 0 && legacyTasks.length > 0;
+          const canImportTimetable =
+            nextTimetable.length === 0 && legacyTimetable.length > 0;
+          const importSummary = [];
+
+          if (canImportTasks) importSummary.push(legacyTasks.length + " task(s)");
+          if (canImportTimetable) {
+            importSummary.push(legacyTimetable.length + " timetable entr(y/ies)");
+          }
+
+          if (importSummary.length > 0) {
+            const accountLabel = user.email ? " (" + user.email + ")" : "";
+            const shouldImport = window.confirm(
+              "StudyFlow found old data saved only in this browser: " +
+                importSummary.join(" and ") +
+                ".\n\nImport it into the signed-in account" +
+                accountLabel +
+                "? Existing cloud data will not be overwritten.\n\nChoose Cancel to leave the old browser data untouched."
+            );
+
+            if (shouldImport) {
+              if (canImportTasks) {
+                await syncUserCollection("tasks", user.id, legacyTasks);
+                nextTasks = legacyTasks;
+              }
+
+              if (canImportTimetable) {
+                await syncUserCollection("timetable", user.id, legacyTimetable);
+                nextTimetable = legacyTimetable;
+              }
+            }
+          }
+
+          markLegacyMigrationReviewed();
+        }
+
+        if (cancelled) return;
+
+        saveUserTasks(user.id, nextTasks);
+        saveUserTimetable(user.id, nextTimetable);
+        saveUserFocusSessions(user.id, nextFocusSessions);
+        setTasks(nextTasks);
+        setTimetable(nextTimetable);
+        setFocusSessions(nextFocusSessions);
+        setDataLoadedFor(user.id);
+        setCloudReadyFor(user.id);
+        setDataSyncError("");
+      } catch (error) {
+        if (cancelled) return;
+
+        console.error("Failed to load StudyFlow cloud data:", error);
+        const cachedTasks = loadUserTasks(user.id);
+        const cachedTimetable = loadUserTimetable(user.id);
+        const cachedFocusSessions = loadUserFocusSessions(user.id);
+        setTasks(cachedTasks);
+        setTimetable(cachedTimetable);
+        setFocusSessions(cachedFocusSessions);
+        setDataLoadedFor(user.id);
+        setDataSyncError(
+          "Cloud data could not be loaded. Your account-specific browser cache is shown, but changes may not sync until the Supabase tables and permissions are configured."
+        );
+      } finally {
+        if (!cancelled) setDataLoading(false);
+      }
+    };
+
+    initializeUserData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.email, dataLoadAttempt]);
+
+  useEffect(() => {
+    if (!user?.id || dataLoadedFor !== user.id) return;
+
+    // Save the account-specific cache even when the network/cloud sync is down.
+    saveUserTasks(user.id, tasks);
+    saveUserTimetable(user.id, timetable);
+    saveUserFocusSessions(user.id, focusSessions);
+
+    if (cloudReadyFor !== user.id || dataSyncError) return;
+
+    const timer = setTimeout(async () => {
+      setDataSyncing(true);
+
+      try {
+        await Promise.all([
+          syncUserCollection("tasks", user.id, tasks),
+          syncUserCollection("timetable", user.id, timetable),
+          syncUserCollection("focusSessions", user.id, focusSessions),
+        ]);
+
+        // Don't mark an older in-flight snapshot as the baseline if state changed
+        // while its writes were running. The newer effect will establish it later.
+        const latest = currentCollectionsRef.current;
+        if (
+          areRecordsEqual(tasks, latest.tasks) &&
+          areRecordsEqual(timetable, latest.timetable) &&
+          areRecordsEqual(focusSessions, latest.focusSessions)
+        ) {
+          saveUserCloudBaseline(user.id, { tasks, timetable, focusSessions });
+        }
+        setDataSyncError("");
+      } catch (error) {
+        console.error("StudyFlow cloud sync failed:", error);
+        setDataSyncError(
+          "Cloud sync failed. Your latest changes remain in this account's browser cache. Reconnect and retry cloud sync."
+        );
+      } finally {
+        setDataSyncing(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [tasks, timetable, focusSessions, user?.id, dataLoadedFor, cloudReadyFor, dataSyncError]);
 
   useEffect(() => {
     if (!toast) return;
@@ -152,22 +437,28 @@ function App() {
     return () => clearTimeout(timer);
   }, [toast]);
 
+  const scopedItems = useMemo(
+    () =>
+      tasks.filter((task) =>
+        activeSection === "exams" ? isExamItem(task) : !isExamItem(task)
+      ),
+    [tasks, activeSection]
+  );
+
   const stats = useMemo(() => {
-    const completed = tasks.filter((task) => task.completed).length;
-
-    const pending = tasks.filter((task) => !task.completed).length;
-
-    const highPriority = tasks.filter(
+    const completed = scopedItems.filter((task) => task.completed).length;
+    const pending = scopedItems.filter((task) => !task.completed).length;
+    const highPriority = scopedItems.filter(
       (task) => !task.completed && task.priority === "High"
     ).length;
 
     return {
-      total: tasks.length,
+      total: scopedItems.length,
       pending,
       completed,
       highPriority,
     };
-  }, [tasks]);
+  }, [scopedItems]);
 
   const visibleTasks = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -189,7 +480,12 @@ function App() {
         const matchesPriority =
           priority === "All" || task.priority === priority;
 
-        return matchesSearch && matchesStatus && matchesPriority;
+        const matchesSection =
+          activeSection === "exams"
+            ? isExamItem(task)
+            : !isExamItem(task);
+
+        return matchesSearch && matchesStatus && matchesPriority && matchesSection;
       })
       .sort((a, b) => {
         if (a.completed !== b.completed) {
@@ -201,7 +497,27 @@ function App() {
 
         return aDate.localeCompare(bDate);
       });
-  }, [tasks, search, status, priority]);
+  }, [tasks, search, status, priority, activeSection]);
+
+  const examAlerts = useMemo(
+    () =>
+      tasks
+        .filter((task) => isExamItem(task) && !task.completed && task.deadline)
+        .sort((a, b) => (daysUntilDate(a.deadline) ?? 9999) - (daysUntilDate(b.deadline) ?? 9999))
+        .slice(0, 4),
+    [tasks]
+  );
+
+  const handleSectionChange = (section) => {
+    setActiveSection(section);
+    setSearch("");
+    setStatus("All");
+    setPriority("All");
+    setForm(EMPTY_FORM);
+    setErrors({});
+    setEditingId(null);
+    setEditForm(EMPTY_FORM);
+  };
 
   const setField = (key, value) => {
     setForm((current) => ({
@@ -221,7 +537,7 @@ function App() {
     const nextErrors = {};
 
     if (!form.title.trim()) {
-      nextErrors.title = "Task title is required.";
+      nextErrors.title = activeSection === "exams" ? "Exam name is required." : "Task title is required.";
     }
 
     if (!form.subject) {
@@ -245,18 +561,17 @@ function App() {
       return;
     }
 
-    const now = new Date().toISOString();
     const newTask = {
       id: makeId(),
+      type: activeSection === "exams" ? "exam" : "task",
       title: form.title.trim(),
       subject: form.subject,
+      classId: form.classId || "",
       deadline: form.deadline,
       priority: form.priority,
       description: form.description.trim(),
       completed: false,
-      createdAt: now,
-      updatedAt: now,
-      completedAt: null,
+      createdAt: new Date().toISOString(),
     };
 
     setTasks((current) => [newTask, ...current]);
@@ -267,20 +582,15 @@ function App() {
   };
 
   const toggleTask = (id) => {
-    const now = new Date().toISOString();
-
     setTasks((current) =>
-      current.map((task) => {
-        if (task.id !== id) return task;
-
-        const completed = !task.completed;
-        return {
-          ...task,
-          completed,
-          updatedAt: now,
-          completedAt: completed ? now : null,
-        };
-      })
+      current.map((task) =>
+        task.id === id
+          ? {
+              ...task,
+              completed: !task.completed,
+            }
+          : task
+      )
     );
 
     setToast("Task status updated.");
@@ -308,6 +618,7 @@ function App() {
       deadline: task.deadline || "",
       priority: task.priority || "Medium",
       description: task.description || "",
+      classId: task.classId || "",
     });
   };
 
@@ -320,7 +631,7 @@ function App() {
     event.preventDefault();
 
     if (!editForm.title.trim()) {
-      setToast("Task title is required.");
+      setToast(isExamItem(tasks.find((task) => task.id === editingId)) ? "Exam name is required." : "Task title is required.");
       return;
     }
 
@@ -329,12 +640,11 @@ function App() {
       return;
     }
 
-    if (!editForm.deadline) {
-      setToast("Please select a deadline.");
+    const editingTask = tasks.find((task) => task.id === editingId);
+    if (!editForm.deadline && isExamItem(editingTask)) {
+      setToast("Please select an exam date.");
       return;
     }
-
-    const now = new Date().toISOString();
 
     setTasks((current) =>
       current.map((task) =>
@@ -346,7 +656,7 @@ function App() {
               deadline: editForm.deadline,
               priority: editForm.priority,
               description: editForm.description.trim(),
-              updatedAt: now,
+              classId: editForm.classId || "",
             }
           : task
       )
@@ -363,6 +673,74 @@ function App() {
     setPriority("All");
   };
 
+  const addQuickTask = (entry) => {
+    const matchedClass = timetable.find((item) =>
+      entry.subject &&
+      [item.subject, item.courseCode].filter(Boolean)
+        .some((value) => value.toLowerCase() === entry.subject.toLowerCase())
+    );
+    const newTask = {
+      id: makeId(),
+      type: "task",
+      title: entry.title,
+      subject: entry.subject || matchedClass?.subject || "Other",
+      classId: matchedClass?.id || "",
+      deadline: entry.deadline || "",
+      priority: entry.priority || "Medium",
+      description: "",
+      completed: false,
+      createdAt: new Date().toISOString(),
+    };
+    setTasks((current) => [newTask, ...current]);
+  };
+
+  const importCalendarTasks = (items) => {
+    if (!Array.isArray(items) || !items.length) return;
+    setTasks((current) => [...items, ...current]);
+  };
+
+  const generateExamPlan = (items) => {
+    if (!Array.isArray(items) || !items.length) return;
+    setTasks((current) => [...items, ...current]);
+  };
+
+  const promptInstall = async () => {
+    if (!installPrompt) {
+      setToast("To install StudyFlow, open your browser menu and choose Install app or Add to Home screen.");
+      return;
+    }
+
+    try {
+      await installPrompt.prompt();
+      const choice = await installPrompt.userChoice;
+      setToast(choice?.outcome === "accepted" ? "StudyFlow installation started." : "Installation was cancelled.");
+    } catch (error) {
+      console.warn("StudyFlow install prompt failed:", error);
+      setToast("Could not open the install prompt. Use your browser menu to install StudyFlow.");
+    } finally {
+      setInstallPrompt(null);
+    }
+  };
+
+  const retryCloudSync = () => {
+    if (cloudReadyFor === user?.id) {
+      // After a successful load, retry the current local state rather than
+      // reloading an older cloud snapshot over edits that have not synced yet.
+      setDataSyncError("");
+    } else {
+      setDataLoadAttempt((attempt) => attempt + 1);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      setShowSignup(false);
+    } catch {
+      setToast("Could not sign out. Please try again.");
+    }
+  };
+
   if (loading) {
     return <div className="app-loading">Loading StudyFlow...</div>;
   }
@@ -375,68 +753,263 @@ function App() {
     );
   }
 
-  if (!cloudSync.isReady) {
-    return <div className="app-loading">Syncing your StudyFlow data...</div>;
+  if (dataLoading || dataLoadedFor !== user.id) {
+    return <div className="app-loading">Loading your StudyFlow data...</div>;
   }
 
   return (
     <div className="studyflow-bg">
       <main className="app-shell">
         <header className="hero">
-          <div className="hero-copy">
+          <div>
             <div className="eyebrow">
               <span className="eyebrow-dot" />
-              STUDENT PRODUCTIVITY
+              STUDYFLOW DASHBOARD
             </div>
 
-            <h1>StudyFlow</h1>
+            <h1>Hello, {getGreetingName(user)}</h1>
 
             <p>
-              Keep assignments, deadlines and priorities in one calm workspace.
+              Here are your class and exam alerts for today.
             </p>
           </div>
 
-          <StudyFlowHeroAnimation />
+          <StudyFlowHeroAnimation tasks={tasks.filter((task) => !isExamItem(task))} />
 
-          <div className="today-chip">
-            <CalendarDays size={17} />
-
-            <span>
-              {new Date().toLocaleDateString(undefined, {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })}
+          <div className="hero-actions">
+            <span className="account-email" title={user.email || "Signed in"}>
+              {user.email || "Signed in"}
             </span>
+
+            <div className="today-chip">
+              <CalendarDays size={17} />
+
+              <span>
+                {new Date().toLocaleDateString(undefined, {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
+            </div>
+
+            <button type="button" className="ghost-button" onClick={handleSignOut}>
+              Sign out
+            </button>
           </div>
         </header>
 
-        <TodayClasses
+        <nav className="dashboard-nav" aria-label="Main navigation">
+          {[
+            { id: "home", label: "Overview", Icon: House },
+            { id: "timetable", label: "Timetable", Icon: CalendarRange },
+            { id: "tasks", label: "Tasks", Icon: ListChecks },
+            { id: "exams", label: "Exams", Icon: GraduationCap },
+            { id: "focus", label: "Focus", Icon: Timer },
+            { id: "studycoach", label: "Study Coach", Icon: BrainCircuit },
+            { id: "settings", label: "Settings", Icon: Settings },
+          ].map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              type="button"
+              className={`dashboard-nav-item ${activeSection === id ? "is-active" : ""}`}
+              onClick={() => handleSectionChange(id)}
+              aria-current={activeSection === id ? "page" : undefined}
+            >
+              <Icon size={17} />
+              <span>{label}</span>
+              {id === "exams" && examAlerts.length > 0 && (
+                <span className="dashboard-nav-count">{examAlerts.length}</span>
+              )}
+            </button>
+          ))}
+        </nav>
+
+        <ReminderSettings
+          userId={user.id}
           timetable={timetable}
-          onSelectClass={setSelectedClass}
-        />
-
-        <StudyMusicPlayer />
-
-        <Timetable
-          timetable={timetable}
-          setTimetable={setTimetable}
-          setToast={setToast}
-        />
-
-        <div className={"cloud-sync-status cloud-sync-" + cloudSync.status} role="status" aria-live="polite">
-          {cloudSync.status === "error" ? <CloudOff size={16} /> : cloudSync.status === "syncing" ? <RefreshCw size={16} /> : cloudSync.status === "synced" ? <Cloud size={16} /> : <Cloud size={16} />}
-          <span>{cloudSync.status === "error" ? "Cloud sync unavailable. Local backup is active." : cloudSync.status === "syncing" ? "Syncing tasks and timetable..." : cloudSync.status === "synced" ? "Tasks and timetable synced to your account" : "Local mode"}</span>
-        </div>
-
-        <StudyFlowWorkspace
-          key={user.id}
-          user={user}
           tasks={tasks}
-          setTasks={setTasks}
-          timetable={timetable}
-          setToast={setToast}
+          onToast={setToast}
+          visible={activeSection === "settings"}
         />
+
+        <FocusMode
+          timetable={timetable}
+          tasks={tasks}
+          sessions={focusSessions}
+          setSessions={setFocusSessions}
+          onToast={setToast}
+          visible={activeSection === "focus"}
+        />
+
+        {activeSection === "focus" && <StudyMusicPlayer />}
+
+        {activeSection === "studycoach" && (
+          <StudyFlowWorkspace
+            key={user.id}
+            user={user}
+            tasks={tasks}
+            setTasks={setTasks}
+            timetable={timetable}
+            setToast={setToast}
+            sessions={focusSessions}
+            setSessions={setFocusSessions}
+          />
+        )}
+
+        {activeSection !== "home" && dataSyncError && (
+          <div className="cloud-sync-warning" role="alert">
+            <span>{dataSyncError}</span>
+            <button
+              type="button"
+              className="ghost-button"
+              onClick={retryCloudSync}
+            >
+              Retry cloud sync
+            </button>
+          </div>
+        )}
+
+        {activeSection !== "home" && !dataSyncError && dataSyncing && (
+          <div className="cloud-sync-status" role="status" aria-live="polite">
+            Saving changes to your account...
+          </div>
+        )}
+
+        {activeSection === "home" && (
+          <section className="dashboard-home-grid">
+            <TodayClasses
+              timetable={timetable}
+              onSelectClass={setSelectedClass}
+            />
+
+            <section className="panel exam-alerts-panel">
+              <div className="panel-heading exam-alerts-heading">
+                <div>
+                  <span className="section-kicker">IMPORTANT DATES</span>
+                  <h2>Exam alerts</h2>
+                </div>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={() => handleSectionChange("exams")}
+                >
+                  View exams
+                </button>
+              </div>
+
+              {examAlerts.length === 0 ? (
+                <div className="exam-alert-empty">
+                  <div className="exam-alert-empty-icon">
+                    <GraduationCap size={22} />
+                  </div>
+                  <h3>No exams scheduled</h3>
+                  <p>Add an exam with its date to see reminders here.</p>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={() => handleSectionChange("exams")}
+                  >
+                    <Plus size={16} />
+                    Add an exam
+                  </button>
+                </div>
+              ) : (
+                <div className="exam-alert-list">
+                  {examAlerts.map((exam) => {
+                    const daysAway = daysUntilDate(exam.deadline);
+                    const urgencyLabel =
+                      daysAway === null
+                        ? formatDeadline(exam.deadline)
+                        : daysAway < 0
+                        ? `${Math.abs(daysAway)} day${Math.abs(daysAway) === 1 ? "" : "s"} overdue`
+                        : daysAway === 0
+                        ? "Today"
+                        : daysAway === 1
+                        ? "Tomorrow"
+                        : `In ${daysAway} days`;
+
+                    return (
+                      <article className="exam-alert-item" key={exam.id}>
+                        <div className="exam-alert-date">
+                          <CalendarDays size={17} />
+                          <span>{new Date(`${exam.deadline}T00:00:00`).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</span>
+                        </div>
+                        <div className="exam-alert-details">
+                          <strong>{exam.title}</strong>
+                          <span>{exam.subject || "General"} · {formatDeadline(exam.deadline)}</span>
+                          {exam.description && <p>{exam.description}</p>}
+                        </div>
+                        <span
+                          className={`exam-urgency ${daysAway !== null && daysAway < 0 ? "is-overdue" : daysAway === 0 ? "is-today" : ""}`}
+                        >
+                          {urgencyLabel}
+                        </span>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </section>
+        )}
+
+        {activeSection === "timetable" && (
+          <Timetable
+            timetable={timetable}
+            setTimetable={setTimetable}
+            setToast={setToast}
+            tasks={tasks}
+            onImportTasks={importCalendarTasks}
+            onSelectClass={setSelectedClass}
+          />
+        )}
+
+        {activeSection === "settings" && (
+          <section className="dashboard-settings-grid">
+            <section className="panel offline-settings-panel">
+              <div className="panel-heading">
+                <div>
+                  <span className="section-kicker">INSTALL & SYNC</span>
+                  <h2>Offline access</h2>
+                </div>
+              </div>
+              <p>StudyFlow saves an account-specific browser cache and queues cloud changes when connectivity returns. Install the app from your browser menu for easier access.</p>
+              <div className="offline-state-row">
+                <span className={isOnline ? "offline-state-dot is-online" : "offline-state-dot"} />
+                <strong>{isOnline ? "Internet connection available" : "Offline · browser cache in use"}</strong>
+              </div>
+              <div className="offline-settings-actions">
+                <button type="button" className="primary-button" onClick={promptInstall}>
+                  <Download size={16} /> {installPrompt ? "Install StudyFlow" : "Install / add to home screen"}
+                </button>
+                <button
+                  type="button"
+                  className="ghost-button"
+                  onClick={retryCloudSync}
+                >
+                  <RotateCcw size={16} /> Retry cloud sync
+                </button>
+              </div>
+              <p className="offline-settings-footnote">Offline access depends on a previous successful load in this browser. Push notifications while the app is fully closed require a separate push service.</p>
+            </section>
+          </section>
+        )}
+
+        {(activeSection === "tasks" || activeSection === "exams") && (
+          <>
+        {activeSection === "tasks" && (
+          <QuickAdd timetable={timetable} onAdd={addQuickTask} onToast={setToast} />
+        )}
+
+        {activeSection === "exams" && (
+          <ExamPrepPlanner
+            exams={tasks.filter(isExamItem)}
+            existingTasks={tasks}
+            onGenerate={generateExamPlan}
+            onToast={setToast}
+          />
+        )}
 
         <section className="stats-grid">
           <div className="stat-card">
@@ -445,7 +1018,7 @@ function App() {
             </div>
 
             <div>
-              <span className="stat-label">Total Tasks</span>
+              <span className="stat-label">{activeSection === "exams" ? "Total Exams" : "Total Tasks"}</span>
               <strong>{stats.total}</strong>
             </div>
           </div>
@@ -456,7 +1029,7 @@ function App() {
             </div>
 
             <div>
-              <span className="stat-label">Pending</span>
+              <span className="stat-label">{activeSection === "exams" ? "Upcoming" : "Pending"}</span>
               <strong>{stats.pending}</strong>
             </div>
           </div>
@@ -467,7 +1040,7 @@ function App() {
             </div>
 
             <div>
-              <span className="stat-label">Completed</span>
+              <span className="stat-label">{activeSection === "exams" ? "Completed Exams" : "Completed"}</span>
               <strong>{stats.completed}</strong>
             </div>
           </div>
@@ -478,7 +1051,7 @@ function App() {
             </div>
 
             <div>
-              <span className="stat-label">High Priority</span>
+              <span className="stat-label">{activeSection === "exams" ? "High Priority Exams" : "High Priority"}</span>
               <strong>{stats.highPriority}</strong>
             </div>
           </div>
@@ -487,8 +1060,10 @@ function App() {
         <section className="panel form-panel">
           <div className="panel-heading">
             <div>
-              <span className="section-kicker">PLAN YOUR WORK</span>
-              <h2>Add a new task</h2>
+              <span className="section-kicker">
+                {activeSection === "exams" ? "PLAN YOUR EXAMS" : "PLAN YOUR WORK"}
+              </span>
+              <h2>{activeSection === "exams" ? "Add an exam" : "Add a new task"}</h2>
             </div>
           </div>
 
@@ -498,7 +1073,7 @@ function App() {
             noValidate
           >
             <div className="field full">
-              <label htmlFor="title">Task title</label>
+              <label htmlFor="title">{activeSection === "exams" ? "Exam name" : "Task title"}</label>
 
               <input
                 id="title"
@@ -506,7 +1081,7 @@ function App() {
                 onChange={(event) =>
                   setField("title", event.target.value)
                 }
-                placeholder="e.g. Physics Assignment"
+                placeholder={activeSection === "exams" ? "e.g. Biology midterm" : "e.g. Physics Assignment"}
               />
 
               {errors.title && (
@@ -545,7 +1120,23 @@ function App() {
             </div>
 
             <div className="field">
-              <label htmlFor="deadline">Deadline</label>
+              <label htmlFor="task-class-link">Linked class <span>(optional)</span></label>
+              <select
+                id="task-class-link"
+                value={form.classId || ""}
+                onChange={(event) => setField("classId", event.target.value)}
+              >
+                <option value="">No linked class</option>
+                {timetable.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {(item.courseCode && item.courseCode.toLowerCase() !== item.subject.toLowerCase() ? item.courseCode + " · " : "") + item.subject + " · " + DAYS[item.day]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="field">
+              <label htmlFor="deadline">{activeSection === "exams" ? "Exam date" : "Deadline"}</label>
 
               <input
                 id="deadline"
@@ -590,7 +1181,7 @@ function App() {
                 onChange={(event) =>
                   setField("description", event.target.value)
                 }
-                placeholder="e.g. Complete questions 1–10"
+                placeholder={activeSection === "exams" ? "e.g. Syllabus, room, or exam instructions" : "e.g. Complete questions 1–10"}
               />
             </div>
 
@@ -600,7 +1191,7 @@ function App() {
                 className="primary-button"
               >
                 <Plus size={18} />
-                Add Task
+                {activeSection === "exams" ? "Add Exam" : "Add Task"}
               </button>
             </div>
           </form>
@@ -661,10 +1252,10 @@ function App() {
           <div className="tasks-heading">
             <div>
               <span className="section-kicker">
-                YOUR WORK
+                {activeSection === "exams" ? "EXAM SCHEDULE" : "YOUR WORK"}
               </span>
 
-              <h2>Tasks</h2>
+              <h2>{activeSection === "exams" ? "Exams" : "Tasks"}</h2>
             </div>
 
             <span className="task-count">
@@ -678,10 +1269,12 @@ function App() {
                 <ListChecks size={24} />
               </div>
 
-              <h3>No tasks found</h3>
+              <h3>{activeSection === "exams" ? "No exams found" : "No tasks found"}</h3>
 
               <p>
-                Try changing your filters or add a new task above.
+                {activeSection === "exams"
+                  ? "Add an exam above with its subject and date to see it in your exam list and home alerts."
+                  : "Try changing your filters or add a new task above."}
               </p>
             </div>
           ) : (
@@ -833,11 +1426,19 @@ function App() {
             </div>
           )}
         </section>
+          </>
+        )}
 
         <footer className="footer">
           <span>StudyFlow</span>
           <span>Made for students</span>
-          <span>Data saved locally in your browser</span>
+          <span>
+            {dataSyncError
+              ? "Account-specific browser cache available"
+              : dataSyncing
+              ? "Syncing to your account..."
+              : "Cloud sync enabled"}
+          </span>
         </footer>
       </main>
 
@@ -861,11 +1462,11 @@ function App() {
             <div className="edit-dialog-heading">
               <div>
                 <span className="section-kicker">
-                  UPDATE YOUR WORK
+                  {isExamItem(tasks.find((task) => task.id === editingId)) ? "UPDATE EXAM" : "UPDATE YOUR WORK"}
                 </span>
 
                 <h2 id="edit-dialog-title">
-                  Edit task
+                  {isExamItem(tasks.find((task) => task.id === editingId)) ? "Edit exam" : "Edit task"}
                 </h2>
               </div>
 
@@ -882,7 +1483,7 @@ function App() {
             <div className="edit-dialog-form">
               <div className="field full">
                 <label htmlFor="edit-title">
-                  Task title
+                  {isExamItem(tasks.find((task) => task.id === editingId)) ? "Exam name" : "Task title"}
                 </label>
 
                 <input
@@ -926,8 +1527,24 @@ function App() {
               </div>
 
               <div className="field">
+                <label htmlFor="edit-class-link">Linked class</label>
+                <select
+                  id="edit-class-link"
+                  value={editForm.classId || ""}
+                  onChange={(event) => setEditForm((current) => ({ ...current, classId: event.target.value }))}
+                >
+                  <option value="">No linked class</option>
+                  {timetable.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {(item.courseCode && item.courseCode.toLowerCase() !== item.subject.toLowerCase() ? item.courseCode + " · " : "") + item.subject + " · " + DAYS[item.day]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="field">
                 <label htmlFor="edit-deadline">
-                  Deadline
+                  {isExamItem(tasks.find((task) => task.id === editingId)) ? "Exam date" : "Deadline"}
                 </label>
 
                 <input
@@ -941,12 +1558,12 @@ function App() {
                     }))
                   }
                 />
+
+                <span className="field-error">{errors.deadline}</span>
               </div>
 
               <div className="field">
-                <label htmlFor="edit-priority">
-                  Priority
-                </label>
+                <label htmlFor="edit-priority">Priority</label>
 
                 <select
                   id="edit-priority"
@@ -966,7 +1583,7 @@ function App() {
 
               <div className="field full">
                 <label htmlFor="edit-description">
-                  Description <span>(optional)</span>
+                  Description
                 </label>
 
                 <input
@@ -995,7 +1612,6 @@ function App() {
                 type="submit"
                 className="primary-button"
               >
-                <Check size={17} />
                 Save changes
               </button>
             </div>
@@ -1012,7 +1628,7 @@ function App() {
       )}
 
       {toast && (
-        <div className="toast">
+        <div className="toast" role="status" aria-live="polite">
           {toast}
         </div>
       )}

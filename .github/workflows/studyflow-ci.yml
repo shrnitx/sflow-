@@ -1,0 +1,74 @@
+name: StudyFlow CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches:
+      - "fix/**"
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    name: Test and build frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      # Build-only values; never used for production deployment.
+      REACT_APP_SUPABASE_URL: https://example.supabase.co
+      REACT_APP_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_only_dummy_value
+      CI: "true"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate PWA shell assets
+        run: |
+          node --check public/service-worker.js
+          node -e "JSON.parse(require('fs').readFileSync('public/manifest.json', 'utf8'))"
+
+      - name: Run unit tests
+        run: npm test -- --watchAll=false
+
+      - name: Build production bundle
+        run: npm run build
+
+      - name: Verify PWA assets in production bundle
+        run: |
+          test -s build/manifest.json
+          test -s build/service-worker.js
+          test -s build/studyflow-icon.svg
+
+      - name: Install Playwright for browser smoke tests
+        run: npm install --no-save --package-lock=false --legacy-peer-deps playwright
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Smoke test production build in a browser
+        run: |
+          node e2e/serve.cjs > /tmp/studyflow-e2e-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:4173/ > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:4173/ > /dev/null
+          node e2e/smoke.cjs

@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { getAuthErrorMessage } from "../../lib/authErrors";
 import "./auth.css";
 import StudyFlowHeroAnimation from "../StudyFlowHeroAnimation";
 
-export default function Signup({ onShowLogin, tasks = [] }) {
+export default function Signup({ onShowLogin }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -13,14 +14,18 @@ export default function Signup({ onShowLogin, tasks = [] }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError("");
     setMessage("");
 
     if (!name.trim()) {
       setError("Please enter your name.");
+      return;
+    }
+
+    if (!email.trim()) {
+      setError("Please enter your email address.");
       return;
     }
 
@@ -36,53 +41,67 @@ export default function Signup({ onShowLogin, tasks = [] }) {
 
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        data: {
-          name: name.trim(),
+    try {
+      const { data, error: signupError } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: {
+            name: name.trim(),
+          },
         },
-      },
-    });
+      });
 
-    if (error) {
-      setError(error.message);
+      if (signupError) {
+        setError(getAuthErrorMessage(signupError));
+        return;
+      }
+
+      if (!data.user) {
+        setError("Supabase did not return a user. Check the Auth configuration and try again.");
+        return;
+      }
+
+      // Supabase can deliberately return an obfuscated user for an existing
+      // email when email confirmation is enabled.
+      if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setError("We couldn't create a new account with this email. Try logging in instead.");
+        return;
+      }
+
+      if (data.session) {
+        setMessage("Account created successfully. You are now signed in.");
+      } else {
+        setMessage(
+          "Account created. Check your inbox and spam folder for the confirmation link before logging in. If no email arrives, ask the project owner to configure custom SMTP in Supabase."
+        );
+      }
+    } catch (caughtError) {
+      setError(getAuthErrorMessage(caughtError));
+    } finally {
       setLoading(false);
-      return;
     }
-
-    if (data.session) {
-      setMessage("Account created successfully.");
-    } else {
-      setMessage("Account created. Check your email if confirmation is required.");
-    }
-
-    setLoading(false);
   };
 
   return (
     <div className="auth-page studyflow-auth-page">
       <main className="studyflow-auth-layout">
         <section className="studyflow-auth-showcase">
-          <div className="studyflow-auth-kicker">
-            <span className="studyflow-auth-kicker-dot" />
-            FROM STUDY CHAOS TO DAILY FLOW
+          <div className="eyebrow">
+            <span className="eyebrow-dot" />
+            STUDENT PRODUCTIVITY
           </div>
-          <h2>Make room for <span>better focus.</span></h2>
-          <p>See your recent study work at a glance, celebrate completed tasks, and keep your next step clear.</p>
-          <StudyFlowHeroAnimation tasks={tasks} />
-          <div className="studyflow-auth-note">
-            <span className="studyflow-auth-note-mark">✓</span>
-            Your planner reflects tasks saved in this browser.
-          </div>
+          <h1>StudyFlow</h1>
+          <p>Plan classes, revise for exams and build consistent focus in one calm workspace.</p>
+          <StudyFlowHeroAnimation />
         </section>
         <div className="auth-card">
         <h1>Create Account</h1>
         <p>Start using StudyFlow.</p>
 
-        {error && <div className="auth-error">{error}</div>}
-        {message && <div className="auth-success">{message}</div>}
+        {error && <div className="auth-error" role="alert" aria-live="polite">{error}</div>}
+        {message && <div className="auth-success" role="status" aria-live="polite">{message}</div>}
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="signup-name">Name</label>
@@ -90,8 +109,9 @@ export default function Signup({ onShowLogin, tasks = [] }) {
             id="signup-name"
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(event) => setName(event.target.value)}
             autoComplete="name"
+            maxLength={100}
             required
           />
 
@@ -100,8 +120,9 @@ export default function Signup({ onShowLogin, tasks = [] }) {
             id="signup-email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(event) => setEmail(event.target.value)}
             autoComplete="email"
+            autoCapitalize="none"
             required
           />
 
@@ -110,8 +131,9 @@ export default function Signup({ onShowLogin, tasks = [] }) {
             id="signup-password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(event) => setPassword(event.target.value)}
             autoComplete="new-password"
+            minLength={6}
             required
           />
 
@@ -120,8 +142,9 @@ export default function Signup({ onShowLogin, tasks = [] }) {
             id="signup-confirm"
             type="password"
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            onChange={(event) => setConfirmPassword(event.target.value)}
             autoComplete="new-password"
+            minLength={6}
             required
           />
 

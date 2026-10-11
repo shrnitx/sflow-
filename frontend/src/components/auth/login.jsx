@@ -1,16 +1,17 @@
 import React, { useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { getAuthErrorMessage } from "../../lib/authErrors";
 import "./auth.css";
 import StudyFlowHeroAnimation from "../StudyFlowHeroAnimation";
 
-export default function Login({ onShowSignup, tasks = [] }) {
+export default function Login({ onShowSignup }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError("");
 
     if (!email.trim() || !password) {
@@ -20,39 +21,40 @@ export default function Login({ onShowSignup, tasks = [] }) {
 
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    try {
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
 
-    if (error) {
-      setError(error.message);
+      if (loginError) {
+        setError(getAuthErrorMessage(loginError));
+      }
+      // AuthContext listens for Supabase's auth-state event and opens StudyFlow.
+    } catch (caughtError) {
+      setError(getAuthErrorMessage(caughtError));
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
     <div className="auth-page studyflow-auth-page">
       <main className="studyflow-auth-layout">
         <section className="studyflow-auth-showcase">
-          <div className="studyflow-auth-kicker">
-            <span className="studyflow-auth-kicker-dot" />
-            FROM STUDY CHAOS TO DAILY FLOW
+          <div className="eyebrow">
+            <span className="eyebrow-dot" />
+            STUDENT PRODUCTIVITY
           </div>
-          <h2>Make room for <span>better focus.</span></h2>
-          <p>See your recent study work at a glance, celebrate completed tasks, and keep your next step clear.</p>
-          <StudyFlowHeroAnimation tasks={tasks} />
-          <div className="studyflow-auth-note">
-            <span className="studyflow-auth-note-mark">✓</span>
-            Your planner reflects tasks saved in this browser.
-          </div>
+          <h1>StudyFlow</h1>
+          <p>Plan classes, revise for exams and build consistent focus in one calm workspace.</p>
+          <StudyFlowHeroAnimation />
         </section>
         <div className="auth-card">
         <h1>Welcome Back</h1>
         <p>Login to continue to StudyFlow.</p>
 
-        {error && <div className="auth-error">{error}</div>}
+        {error && <div className="auth-error" role="alert" aria-live="polite">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="login-email">Email</label>
@@ -60,8 +62,9 @@ export default function Login({ onShowSignup, tasks = [] }) {
             id="login-email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(event) => setEmail(event.target.value)}
             autoComplete="email"
+            autoCapitalize="none"
             required
           />
 
@@ -70,7 +73,7 @@ export default function Login({ onShowSignup, tasks = [] }) {
             id="login-password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(event) => setPassword(event.target.value)}
             autoComplete="current-password"
             required
           />
