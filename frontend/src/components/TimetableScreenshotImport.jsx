@@ -91,11 +91,15 @@ export default function TimetableScreenshotImport({
     }
 
     onImport(
-      validEntries.map(({ draftId, ...entry }) => ({
-        ...entry,
-        day: Number(entry.day),
-        subject: entry.subject.trim(),
-      })),
+      validEntries.map((entry) => {
+        const cleanEntry = { ...entry };
+        delete cleanEntry.draftId;
+        return {
+          ...cleanEntry,
+          day: Number(entry.day),
+          subject: entry.subject.trim(),
+        };
+      }),
       mode === "replace"
     );
 
