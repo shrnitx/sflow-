@@ -1058,7 +1058,7 @@ function App() {
                 <option value="">No linked class</option>
                 {timetable.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {(item.courseCode ? item.courseCode + " · " : "") + item.subject + " · " + DAYS[item.day]}
+                    {(item.courseCode && item.courseCode.toLowerCase() !== item.subject.toLowerCase() ? item.courseCode + " · " : "") + item.subject + " · " + DAYS[item.day]}
                   </option>
                 ))}
               </select>
@@ -1465,7 +1465,7 @@ function App() {
                   <option value="">No linked class</option>
                   {timetable.map((item) => (
                     <option key={item.id} value={item.id}>
-                      {(item.courseCode ? item.courseCode + " · " : "") + item.subject + " · " + DAYS[item.day]}
+                      {(item.courseCode && item.courseCode.toLowerCase() !== item.subject.toLowerCase() ? item.courseCode + " · " : "") + item.subject + " · " + DAYS[item.day]}
                     </option>
                   ))}
                 </select>
