@@ -18,8 +18,8 @@ export default function TimetableScreenshotImport({
 
   const updateEntry = (id, field, value) => {
     setEntries((current) =>
-      current.map((entry, index) =>
-        index === id ? { ...entry, [field]: value } : entry
+      current.map((entry) =>
+        entry.draftId === id ? { ...entry, [field]: value } : entry
       )
     );
   };
