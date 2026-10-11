@@ -10,7 +10,7 @@ function localDateKey(date) {
   ].join("-");
 }
 
-function ExamPrepPlanner({ exams, onGenerate, onToast }) {
+function ExamPrepPlanner({ exams, existingTasks = [], onGenerate, onToast }) {
   const availableExams = useMemo(
     () => [...exams].filter((exam) => exam.deadline && !exam.completed)
       .sort((a, b) => a.deadline.localeCompare(b.deadline)),
@@ -88,8 +88,35 @@ function ExamPrepPlanner({ exams, onGenerate, onToast }) {
         };
       });
 
-    onGenerate(plan);
-    onToast("Created " + plan.length + " revision sessions for " + selectedExam.title + ".");
+    const existingKeys = new Set(
+      existingTasks
+        .filter((task) => task.examId === selectedExam.id)
+        .map((task) => [
+          String(task.title || "").trim().toLowerCase(),
+          String(task.deadline || ""),
+        ].join("|"))
+    );
+    const freshPlan = plan.filter((task) => {
+      const key = [
+        String(task.title || "").trim().toLowerCase(),
+        String(task.deadline || ""),
+      ].join("|");
+      if (existingKeys.has(key)) return false;
+      existingKeys.add(key);
+      return true;
+    });
+
+    if (!freshPlan.length) {
+      setError("This revision plan already exists. Change the topic list or edit the existing tasks instead of creating duplicates.");
+      return;
+    }
+
+    onGenerate(freshPlan);
+    const skipped = plan.length - freshPlan.length;
+    onToast(
+      "Created " + freshPlan.length + " revision session(s) for " + selectedExam.title +
+      (skipped ? ". Skipped " + skipped + " duplicate(s)." : ".")
+    );
     setTopicsText("");
   };
 
