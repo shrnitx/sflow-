@@ -2430,3 +2430,45 @@ select {
     width: 100%;
   }
 }
+
+
+.reminder-category-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin: 17px 0 14px;
+}
+
+.reminder-category-toggles label,
+.reminder-quiet-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.reminder-category-toggles input,
+.reminder-quiet-toggle input {
+  accent-color: var(--brown);
+}
+
+.reminder-quiet-controls {
+  margin: 15px 0;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 250, 237, 0.6);
+}
+
+.quiet-hours-fields {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 0;
+}
+
+.quiet-hours-fields input:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
