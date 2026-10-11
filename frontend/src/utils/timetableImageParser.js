@@ -116,7 +116,12 @@ function parseTimes(text) {
   let match;
 
   while ((match = pattern.exec(source))) {
-    const token = match[0].replace(/\./g, ":").replace(/\s+/g, "").toLowerCase();
+    const token = match[0]
+      .toLowerCase()
+      .replace(/a\.?m\.?/g, "am")
+      .replace(/p\.?m\.?/g, "pm")
+      .replace(/\./g, ":")
+      .replace(/\s+/g, "");
     const meridiemMatch = token.match(/(am|pm)$/);
     const meridiem = meridiemMatch ? meridiemMatch[1] : "";
     const numeric = token.replace(/(am|pm)$/, "");
