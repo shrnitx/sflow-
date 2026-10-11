@@ -283,6 +283,33 @@ function extractGridTimetable(rows) {
   return result;
 }
 
+function positionedTimeTokens(words) {
+  const sorted = [...words].sort((a, b) => centerX(a) - centerX(b));
+  const tokens = [];
+
+  sorted.forEach((word, index) => {
+    let text = word.text;
+    const next = sorted[index + 1];
+    if (
+      next &&
+      /^(?:a\.?m\.?|p\.?m\.?)$/i.test(next.text) &&
+      centerX(next) - centerX(word) < Math.max(70, (word.bbox.y1 - word.bbox.y0) * 4)
+    ) {
+      text += " " + next.text;
+    }
+
+    parseTimes(text).forEach((time) => {
+      tokens.push({
+        ...time,
+        x: centerX(word),
+        height: word.bbox.y1 - word.bbox.y0,
+      });
+    });
+  });
+
+  return tokens;
+}
+
 function clusterTimeTokens(tokens, threshold) {
   const sorted = [...tokens].sort((a, b) => a.x - b.x);
   const clusters = [];
@@ -309,13 +336,7 @@ function clusterTimeTokens(tokens, threshold) {
 // Read that transposed layout separately from the day-columns layout above.
 function extractTransposedTimetable(rows) {
   const candidateRows = rows.map((row) => {
-    const tokens = row.words.flatMap((word) =>
-      parseTimes(word.text).map((time) => ({
-        ...time,
-        x: centerX(word),
-        height: word.bbox.y1 - word.bbox.y0,
-      }))
-    );
+    const tokens = positionedTimeTokens(row.words);
     const threshold = Math.max(34, median(tokens.map((token) => token.height)) * 3.5);
     const columns = clusterTimeTokens(tokens, threshold);
     return { row, tokens, columns };
