@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
   Download,
+  Eye,
   FileUp,
   Pencil,
   Plus,
@@ -31,7 +32,7 @@ const EMPTY_FORM = {
   meetingUrl: "",
 };
 
-function Timetable({ timetable, setTimetable, setToast, tasks = [], onImportTasks = () => {} }) {
+function Timetable({ timetable, setTimetable, setToast, tasks = [], onImportTasks = () => {}, onSelectClass = () => {} }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
@@ -542,6 +543,15 @@ function Timetable({ timetable, setTimetable, setToast, tasks = [], onImportTask
                       </div>
 
                       <div className="timetable-entry-actions">
+                        <button
+                          type="button"
+                          className="icon-button"
+                          onClick={() => onSelectClass(item)}
+                          aria-label={`View details for ${item.subject}`}
+                          title="View class details"
+                        >
+                          <Eye size={15} />
+                        </button>
                         <button
                           type="button"
                           className="icon-button"
