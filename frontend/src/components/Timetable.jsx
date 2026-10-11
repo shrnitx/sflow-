@@ -1,6 +1,8 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import {
   CalendarDays,
+  Download,
+  FileUp,
   Pencil,
   Plus,
   Trash2,
@@ -14,6 +16,7 @@ import {
   timeToMinutes,
 } from "../utils/timetable";
 import { makeId } from "../utils/storage";
+import { downloadIcs, exportStudyFlowCalendar, parseStudyFlowCalendar } from "../utils/calendar";
 import TimetableScreenshotImport from "./TimetableScreenshotImport";
 
 const EMPTY_FORM = {
@@ -21,12 +24,18 @@ const EMPTY_FORM = {
   day: "1",
   startTime: "09:00",
   endTime: "10:00",
+  courseCode: "",
+  instructor: "",
+  room: "",
+  notes: "",
+  meetingUrl: "",
 };
 
-function Timetable({ timetable, setTimetable, setToast }) {
+function Timetable({ timetable, setTimetable, setToast, tasks = [], onImportTasks = () => {} }) {
   const [form, setForm] = useState(EMPTY_FORM);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState("");
+  const calendarInputRef = useRef(null);
 
   const groupedDays = useMemo(() => {
     return WEEKDAYS.map((dayIndex) => ({
@@ -82,6 +91,11 @@ function Timetable({ timetable, setTimetable, setToast }) {
                 day,
                 startTime: form.startTime,
                 endTime: form.endTime,
+                courseCode: form.courseCode.trim(),
+                instructor: form.instructor.trim(),
+                room: form.room.trim(),
+                notes: form.notes.trim(),
+                meetingUrl: form.meetingUrl.trim(),
               }
             : item
         )
@@ -95,6 +109,11 @@ function Timetable({ timetable, setTimetable, setToast }) {
         day,
         startTime: form.startTime,
         endTime: form.endTime,
+        courseCode: form.courseCode.trim(),
+        instructor: form.instructor.trim(),
+        room: form.room.trim(),
+        notes: form.notes.trim(),
+        meetingUrl: form.meetingUrl.trim(),
         recurring: true,
         createdAt: new Date().toISOString(),
       };
@@ -118,6 +137,11 @@ function Timetable({ timetable, setTimetable, setToast }) {
       day: String(item.day),
       startTime: item.startTime || "09:00",
       endTime: item.endTime || "10:00",
+      courseCode: item.courseCode || "",
+      instructor: item.instructor || "",
+      room: item.room || item.location || "",
+      notes: item.notes || "",
+      meetingUrl: item.meetingUrl || "",
     });
 
     window.scrollTo({
@@ -170,6 +194,65 @@ function Timetable({ timetable, setTimetable, setToast }) {
     );
   };
 
+  const importCalendarFile = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    if (file.size > 4 * 1024 * 1024) {
+      setToast("Calendar file is too large. Choose a file smaller than 4 MB.");
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const parsed = parseStudyFlowCalendar(text);
+      const importedClasses = parsed.timetable
+        .filter((item) => item.subject && item.startTime && item.endTime)
+        .map((item) => ({ ...item, id: makeId(), recurring: true, createdAt: new Date().toISOString() }));
+      const existingKeys = new Set(timetable.map((item) => [
+        item.day, item.startTime, item.endTime, String(item.subject || "").toLowerCase()
+      ].join("|")));
+      const freshClasses = importedClasses.filter((item) => {
+        const key = [item.day, item.startTime, item.endTime, item.subject.toLowerCase()].join("|");
+        if (existingKeys.has(key)) return false;
+        existingKeys.add(key);
+        return true;
+      });
+
+      if (freshClasses.length) {
+        setTimetable((current) => [...current, ...freshClasses]);
+      }
+
+      const importedTasks = parsed.tasks.map((item) => ({ ...item, id: makeId() }));
+      if (importedTasks.length) onImportTasks(importedTasks);
+
+      const summary = [];
+      if (freshClasses.length) summary.push(freshClasses.length + " class(es)");
+      if (importedTasks.length) summary.push(importedTasks.length + " task/exam reminder(s)");
+      const errorCount = parsed.errors.length;
+      setToast(
+        summary.length
+          ? "Imported " + summary.join(" and ") + (errorCount ? ". " + errorCount + " event(s) were skipped." : ".")
+          : "No supported calendar entries were found. Use a standard .ics file."
+      );
+    } catch (caughtError) {
+      console.error("StudyFlow calendar import failed:", caughtError);
+      setToast("Could not read that calendar file. Try exporting a standard .ics calendar.");
+    }
+  };
+
+  const exportCalendar = () => {
+    try {
+      const content = exportStudyFlowCalendar({ timetable, tasks });
+      downloadIcs("studyflow-calendar.ics", content);
+      setToast("Calendar export downloaded.");
+    } catch (caughtError) {
+      console.error("StudyFlow calendar export failed:", caughtError);
+      setToast("Could not export the calendar. Please try again.");
+    }
+  };
+
   const deleteClass = (id) => {
     const item = timetable.find(
       (entry) => entry.id === id
@@ -196,7 +279,7 @@ function Timetable({ timetable, setTimetable, setToast }) {
 
   return (
     <section className="panel timetable-panel">
-      <div className="panel-heading">
+      <div className="panel-heading timetable-panel-heading">
         <div>
           <span className="section-kicker">
             WEEKLY SCHEDULE
@@ -207,6 +290,22 @@ function Timetable({ timetable, setTimetable, setToast }) {
               ? "Edit class"
               : "Build your timetable"}
           </h2>
+        </div>
+        <div className="timetable-calendar-actions">
+          <input
+            ref={calendarInputRef}
+            className="timetable-file-input"
+            type="file"
+            accept=".ics,text/calendar"
+            onChange={importCalendarFile}
+            aria-label="Import calendar file"
+          />
+          <button type="button" className="ghost-button" onClick={() => calendarInputRef.current?.click()}>
+            <FileUp size={16} /> Import .ics
+          </button>
+          <button type="button" className="ghost-button" onClick={exportCalendar}>
+            <Download size={16} /> Export calendar
+          </button>
         </div>
       </div>
 
@@ -296,6 +395,41 @@ function Timetable({ timetable, setTimetable, setToast }) {
           />
         </div>
 
+        <div className="field">
+          <label htmlFor="timetable-course-code">Course code <span>(optional)</span></label>
+          <input id="timetable-course-code" value={form.courseCode} maxLength={40}
+            onChange={(event) => setForm((current) => ({ ...current, courseCode: event.target.value }))}
+            placeholder="e.g. BTF123" />
+        </div>
+
+        <div className="field">
+          <label htmlFor="timetable-instructor">Faculty <span>(optional)</span></label>
+          <input id="timetable-instructor" value={form.instructor} maxLength={100}
+            onChange={(event) => setForm((current) => ({ ...current, instructor: event.target.value }))}
+            placeholder="Instructor name" />
+        </div>
+
+        <div className="field">
+          <label htmlFor="timetable-room">Room / venue <span>(optional)</span></label>
+          <input id="timetable-room" value={form.room} maxLength={80}
+            onChange={(event) => setForm((current) => ({ ...current, room: event.target.value }))}
+            placeholder="e.g. LT-23" />
+        </div>
+
+        <div className="field">
+          <label htmlFor="timetable-meeting-url">Online meeting link <span>(optional)</span></label>
+          <input id="timetable-meeting-url" type="url" value={form.meetingUrl} maxLength={500}
+            onChange={(event) => setForm((current) => ({ ...current, meetingUrl: event.target.value }))}
+            placeholder="https://..." />
+        </div>
+
+        <div className="field full">
+          <label htmlFor="timetable-notes">Notes / materials <span>(optional)</span></label>
+          <textarea id="timetable-notes" rows={2} value={form.notes} maxLength={1000}
+            onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
+            placeholder="Room details, class notes, or material links" />
+        </div>
+
         {error && (
           <div className="field-error timetable-error">
             {error}
@@ -374,11 +508,19 @@ function Timetable({ timetable, setTimetable, setToast }) {
 
                       <div className="timetable-entry-subject">
                         <strong>
-                          {item.subject}
+                          {item.courseCode ? item.courseCode + " · " : ""}{item.subject}
                         </strong>
                         <span>
-                          Every {day}
+                          {item.instructor || item.room
+                            ? [item.instructor, item.room || item.location].filter(Boolean).join(" · ")
+                            : "Every " + day}
                         </span>
+                        {item.meetingUrl && (
+                          <a className="timetable-meeting-link" href={item.meetingUrl} target="_blank" rel="noreferrer">
+                            Join online class
+                          </a>
+                        )}
+                        {item.notes && <small className="timetable-entry-notes">{item.notes}</small>}
                       </div>
 
                       <div className="timetable-entry-actions">
