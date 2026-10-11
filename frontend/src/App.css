@@ -1097,3 +1097,40 @@ select {
     font-size: 3rem;
   }
 }
+
+.cloud-sync-warning,
+.cloud-sync-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 0 18px;
+  padding: 13px 16px;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.cloud-sync-warning {
+  color: #8a3415;
+  background: #fff3e8;
+  border: 1px solid #f2c6a7;
+}
+
+.cloud-sync-warning .ghost-button {
+  flex: 0 0 auto;
+}
+
+.cloud-sync-status {
+  justify-content: flex-start;
+  color: #315a48;
+  background: #eef8f1;
+  border: 1px solid #c9e5d2;
+}
+
+@media (max-width: 640px) {
+  .cloud-sync-warning {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
