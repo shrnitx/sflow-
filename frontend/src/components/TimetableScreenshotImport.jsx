@@ -255,6 +255,33 @@ export default function TimetableScreenshotImport({
                   />
                 </div>
                 <div className="field">
+                  <label htmlFor={"import-course-code-" + entry.draftId}>Course code</label>
+                  <input
+                    id={"import-course-code-" + entry.draftId}
+                    value={entry.courseCode || ""}
+                    onChange={(event) => updateEntry(entry.draftId, "courseCode", event.target.value)}
+                    maxLength={40}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor={"import-instructor-" + entry.draftId}>Faculty</label>
+                  <input
+                    id={"import-instructor-" + entry.draftId}
+                    value={entry.instructor || ""}
+                    onChange={(event) => updateEntry(entry.draftId, "instructor", event.target.value)}
+                    maxLength={100}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor={"import-room-" + entry.draftId}>Room</label>
+                  <input
+                    id={"import-room-" + entry.draftId}
+                    value={entry.room || ""}
+                    onChange={(event) => updateEntry(entry.draftId, "room", event.target.value)}
+                    maxLength={80}
+                  />
+                </div>
+                <div className="field">
                   <label htmlFor={"import-day-" + entry.draftId}>Day</label>
                   <select
                     id={"import-day-" + entry.draftId}
