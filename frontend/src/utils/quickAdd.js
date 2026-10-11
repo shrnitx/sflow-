@@ -65,7 +65,9 @@ function parseDatePhrase(text, now = new Date()) {
   if (weekday) {
     const targetDay = weekday[1];
     let delta = (targetDay - today.getDay() + 7) % 7;
-    if (delta === 0 || /\bnext\s+/.test(source)) delta += 7;
+    if (/\bnext\s+/.test(source)) {
+      delta = delta === 0 ? 7 : delta + 7;
+    }
     const result = new Date(today);
     result.setDate(result.getDate() + delta);
     return localDateKey(result);
