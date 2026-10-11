@@ -132,7 +132,9 @@ async function main() {
     await page.getByRole("button", { name: "Generate revision plan" }).click();
     await page.getByText(/Created \d+ revision session/).waitFor();
     await page.getByRole("button", { name: "Tasks", exact: true }).click();
-    await page.getByRole("heading", { name: /Revise for Final Genetics Exam/ }).waitFor();
+    const generatedRevisionHeadings = page.getByRole("heading", { name: /Revise for Final Genetics Exam/ });
+    await generatedRevisionHeadings.first().waitFor();
+    assert.equal(await generatedRevisionHeadings.count(), 3);
     process.stdout.write("PASS: Exam creation and revision plan generation\n");
 
     await page.getByRole("button", { name: "Timetable", exact: true }).click();
