@@ -149,6 +149,7 @@ function App() {
   const [dataLoadAttempt, setDataLoadAttempt] = useState(0);
   const [dataSyncing, setDataSyncing] = useState(false);
   const [dataSyncError, setDataSyncError] = useState("");
+  const [isOnline, setIsOnline] = useState(() => typeof navigator === "undefined" ? true : navigator.onLine);
 
   const [tasks, setTasks] = useState(() => {
     try {
@@ -183,6 +184,25 @@ function App() {
   useEffect(() => {
     setActiveSection("home");
   }, [user?.id]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      if (user?.id && cloudReadyFor === user.id) {
+        // Re-run the sync effect with the latest local state after reconnecting.
+        setDataSyncError("");
+      } else if (user?.id) {
+        setDataLoadAttempt((attempt) => attempt + 1);
+      }
+    };
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [user?.id, cloudReadyFor]);
 
   useEffect(() => {
     if (!user?.id) {
@@ -844,8 +864,8 @@ function App() {
               </div>
               <p>StudyFlow saves an account-specific browser cache and queues cloud changes when connectivity returns. Install the app from your browser menu for easier access.</p>
               <div className="offline-state-row">
-                <span className={navigator.onLine ? "offline-state-dot is-online" : "offline-state-dot"} />
-                <strong>{navigator.onLine ? "Internet connection available" : "Offline · browser cache in use"}</strong>
+                <span className={isOnline ? "offline-state-dot is-online" : "offline-state-dot"} />
+                <strong>{isOnline ? "Internet connection available" : "Offline · browser cache in use"}</strong>
               </div>
               <button
                 type="button"
