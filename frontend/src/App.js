@@ -852,6 +852,8 @@ function App() {
             setTasks={setTasks}
             timetable={timetable}
             setToast={setToast}
+            sessions={focusSessions}
+            setSessions={setFocusSessions}
           />
         )}
 
