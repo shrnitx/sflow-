@@ -30,6 +30,8 @@ import Login from "./components/auth/login";
 import Signup from "./components/auth/signup";
 import { useAuth } from "./context/AuthContext";
 
+import StudyFlowHeroAnimation from "./components/StudyFlowHeroAnimation";
+
 import "./App.css";
 
 const SUBJECTS = [
@@ -358,7 +360,7 @@ function App() {
     <div className="studyflow-bg">
       <main className="app-shell">
         <header className="hero">
-          <div>
+          <div className="hero-copy">
             <div className="eyebrow">
               <span className="eyebrow-dot" />
               STUDENT PRODUCTIVITY
@@ -370,6 +372,8 @@ function App() {
               Keep assignments, deadlines and priorities in one calm workspace.
             </p>
           </div>
+
+          <StudyFlowHeroAnimation />
 
           <div className="today-chip">
             <CalendarDays size={17} />

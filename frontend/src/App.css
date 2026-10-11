@@ -1073,3 +1073,76 @@ select {
     font-size: 3rem;
   }
 }
+
+/* StudyFlow planner hero: keep the existing warm-paper dashboard theme. */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 330px) auto;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 28px;
+}
+
+.hero-copy { min-width: 0; }
+
+.studyflow-hero-animation {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.today-chip {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+}
+
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .hero-copy { grid-column: 1; grid-row: 1; }
+  .today-chip { grid-column: 2; grid-row: 1; }
+
+  .studyflow-hero-animation {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: min(100%, 340px);
+    max-width: 340px;
+    margin-top: -5px;
+  }
+}
+
+@media (max-width: 680px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 10px;
+  }
+
+  .hero-copy { grid-column: 1; grid-row: 1; }
+
+  .studyflow-hero-animation {
+    grid-column: 1;
+    grid-row: 2;
+    width: min(100%, 340px);
+    height: 178px;
+    justify-self: center;
+    margin-top: 0;
+  }
+
+  .today-chip {
+    grid-column: 1;
+    grid-row: 3;
+    justify-self: start;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .studyflow-hero-animation *,
+  .studyflow-hero-animation *::before,
+  .studyflow-hero-animation *::after {
+    scroll-behavior: auto !important;
+  }
+}
