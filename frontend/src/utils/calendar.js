@@ -221,7 +221,7 @@ export function parseStudyFlowCalendar(text) {
       return;
     }
 
-    if (event.RRULE && !start.allDay && end && !end.allDay && start.time && end.time && start.time !== end.time) {
+    if (event.RRULE && /(?:^|;)FREQ=WEEKLY(?:;|$)/i.test(event.RRULE.raw) && !start.allDay && end && !end.allDay && start.time && end.time && start.time !== end.time) {
       const days = eventDayList(event);
       const description = event.DESCRIPTION?.text || "";
       const fieldValue = (label) => {
