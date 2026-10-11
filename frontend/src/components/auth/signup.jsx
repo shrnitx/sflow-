@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { supabase } from "../../lib/supabaseClient";
+import { getAuthErrorMessage } from "../../lib/authErrors";
 import "./auth.css";
 
 export default function Signup({ onShowLogin }) {
@@ -12,14 +13,18 @@ export default function Signup({ onShowLogin }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError("");
     setMessage("");
 
     if (!name.trim()) {
       setError("Please enter your name.");
+      return;
+    }
+
+    if (!email.trim()) {
+      setError("Please enter your email address.");
       return;
     }
 
@@ -35,29 +40,47 @@ export default function Signup({ onShowLogin }) {
 
     setLoading(true);
 
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        data: {
-          name: name.trim(),
+    try {
+      const { data, error: signupError } = await supabase.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          data: {
+            name: name.trim(),
+          },
         },
-      },
-    });
+      });
 
-    if (error) {
-      setError(error.message);
+      if (signupError) {
+        setError(getAuthErrorMessage(signupError));
+        return;
+      }
+
+      if (!data.user) {
+        setError("Supabase did not return a user. Check the Auth configuration and try again.");
+        return;
+      }
+
+      // Supabase can deliberately return an obfuscated user for an existing
+      // email when email confirmation is enabled.
+      if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        setError("We couldn't create a new account with this email. Try logging in instead.");
+        return;
+      }
+
+      if (data.session) {
+        setMessage("Account created successfully. You are now signed in.");
+      } else {
+        setMessage(
+          "Account created. Check your inbox and spam folder for the confirmation link before logging in. If no email arrives, ask the project owner to configure custom SMTP in Supabase."
+        );
+      }
+    } catch (caughtError) {
+      setError(getAuthErrorMessage(caughtError));
+    } finally {
       setLoading(false);
-      return;
     }
-
-    if (data.session) {
-      setMessage("Account created successfully.");
-    } else {
-      setMessage("Account created. Check your email if confirmation is required.");
-    }
-
-    setLoading(false);
   };
 
   return (
@@ -66,8 +89,8 @@ export default function Signup({ onShowLogin }) {
         <h1>Create Account</h1>
         <p>Start using StudyFlow.</p>
 
-        {error && <div className="auth-error">{error}</div>}
-        {message && <div className="auth-success">{message}</div>}
+        {error && <div className="auth-error" role="alert" aria-live="polite">{error}</div>}
+        {message && <div className="auth-success" role="status" aria-live="polite">{message}</div>}
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="signup-name">Name</label>
@@ -75,8 +98,9 @@ export default function Signup({ onShowLogin }) {
             id="signup-name"
             type="text"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(event) => setName(event.target.value)}
             autoComplete="name"
+            maxLength={100}
             required
           />
 
@@ -85,8 +109,9 @@ export default function Signup({ onShowLogin }) {
             id="signup-email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(event) => setEmail(event.target.value)}
             autoComplete="email"
+            autoCapitalize="none"
             required
           />
 
@@ -95,8 +120,9 @@ export default function Signup({ onShowLogin }) {
             id="signup-password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(event) => setPassword(event.target.value)}
             autoComplete="new-password"
+            minLength={6}
             required
           />
 
@@ -105,8 +131,9 @@ export default function Signup({ onShowLogin }) {
             id="signup-confirm"
             type="password"
             value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
+            onChange={(event) => setConfirmPassword(event.target.value)}
             autoComplete="new-password"
+            minLength={6}
             required
           />
 
