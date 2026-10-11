@@ -309,16 +309,14 @@ function App() {
   }, [user?.id, user?.email, dataLoadAttempt]);
 
   useEffect(() => {
-    if (
-      !user?.id ||
-      dataLoadedFor !== user.id ||
-      cloudReadyFor !== user.id ||
-      dataSyncError
-    ) return;
+    if (!user?.id || dataLoadedFor !== user.id) return;
 
-    // Cache by user ID; do not put account data back into the old shared browser keys.
+    // Save the account-specific cache even when the network/cloud sync is down.
     saveUserTasks(user.id, tasks);
     saveUserTimetable(user.id, timetable);
+    saveUserFocusSessions(user.id, focusSessions);
+
+    if (cloudReadyFor !== user.id || dataSyncError) return;
 
     const timer = setTimeout(async () => {
       setDataSyncing(true);
@@ -327,12 +325,13 @@ function App() {
         await Promise.all([
           syncUserCollection("tasks", user.id, tasks),
           syncUserCollection("timetable", user.id, timetable),
+          syncUserCollection("focusSessions", user.id, focusSessions),
         ]);
         setDataSyncError("");
       } catch (error) {
         console.error("StudyFlow cloud sync failed:", error);
         setDataSyncError(
-          "Cloud sync failed. Your latest changes remain in this account's browser cache. Check the Supabase migration and policies, then retry."
+          "Cloud sync failed. Your latest changes remain in this account's browser cache. Reconnect and retry cloud sync."
         );
       } finally {
         setDataSyncing(false);
@@ -340,7 +339,7 @@ function App() {
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [tasks, timetable, user?.id, dataLoadedFor, cloudReadyFor, dataSyncError]);
+  }, [tasks, timetable, focusSessions, user?.id, dataLoadedFor, cloudReadyFor, dataSyncError]);
 
   useEffect(() => {
     if (!toast) return;
