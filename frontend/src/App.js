@@ -331,22 +331,28 @@ function App() {
     return () => clearTimeout(timer);
   }, [toast]);
 
+  const scopedItems = useMemo(
+    () =>
+      tasks.filter((task) =>
+        activeSection === "exams" ? isExamItem(task) : !isExamItem(task)
+      ),
+    [tasks, activeSection]
+  );
+
   const stats = useMemo(() => {
-    const completed = tasks.filter((task) => task.completed).length;
-
-    const pending = tasks.filter((task) => !task.completed).length;
-
-    const highPriority = tasks.filter(
+    const completed = scopedItems.filter((task) => task.completed).length;
+    const pending = scopedItems.filter((task) => !task.completed).length;
+    const highPriority = scopedItems.filter(
       (task) => !task.completed && task.priority === "High"
     ).length;
 
     return {
-      total: tasks.length,
+      total: scopedItems.length,
       pending,
       completed,
       highPriority,
     };
-  }, [tasks]);
+  }, [scopedItems]);
 
   const visibleTasks = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -386,6 +392,26 @@ function App() {
         return aDate.localeCompare(bDate);
       });
   }, [tasks, search, status, priority, activeSection]);
+
+  const examAlerts = useMemo(
+    () =>
+      tasks
+        .filter((task) => isExamItem(task) && !task.completed && task.deadline)
+        .sort((a, b) => (daysUntilDate(a.deadline) ?? 9999) - (daysUntilDate(b.deadline) ?? 9999))
+        .slice(0, 4),
+    [tasks]
+  );
+
+  const handleSectionChange = (section) => {
+    setActiveSection(section);
+    setSearch("");
+    setStatus("All");
+    setPriority("All");
+    setForm(EMPTY_FORM);
+    setErrors({});
+    setEditingId(null);
+    setEditForm(EMPTY_FORM);
+  };
 
   const setField = (key, value) => {
     setForm((current) => ({
