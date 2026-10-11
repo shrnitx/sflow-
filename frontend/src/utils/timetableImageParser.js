@@ -337,7 +337,10 @@ function clusterTimeTokens(tokens, threshold) {
 function extractTransposedTimetable(rows) {
   const candidateRows = rows.map((row) => {
     const tokens = positionedTimeTokens(row.words);
-    const threshold = Math.max(34, median(tokens.map((token) => token.height)) * 3.5);
+    const threshold = Math.max(
+      55,
+      Math.min(120, median(tokens.map((token) => token.height)) * 5.2)
+    );
     const columns = clusterTimeTokens(tokens, threshold);
     return { row, tokens, columns };
   });
