@@ -103,6 +103,7 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
   const [messages, setMessages] = useState(() => safeRead(dataKey + ":assistant", []));
   const [dataReadyUser, setDataReadyUser] = useState(null);
   const [cloudReadReady, setCloudReadReady] = useState(false);
+  const [cloudLoadAttempt, setCloudLoadAttempt] = useState(0);
   const [cloudStatus, setCloudStatus] = useState("syncing");
   const [examDraft, setExamDraft] = useState({ title: "", subject: "", date: "" });
   const [topicDraft, setTopicDraft] = useState({ title: "", subject: "" });
@@ -209,7 +210,7 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
     };
     load();
     return () => { active = false; };
-  }, [userId, dataKey, importLegacyExams]);
+  }, [userId, dataKey, importLegacyExams, cloudLoadAttempt]);
 
   useEffect(() => {
     if (dataReadyUser !== userId || !cloudReadReady) return undefined;
@@ -259,6 +260,13 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
       supabase.removeChannel(channel);
     };
   }, [userId, dataReadyUser, cloudReadReady, importLegacyExams]);
+
+  useEffect(() => {
+    if (!userId || cloudReadReady) return undefined;
+    const retry = () => setCloudLoadAttempt((attempt) => attempt + 1);
+    window.addEventListener("online", retry);
+    return () => window.removeEventListener("online", retry);
+  }, [userId, cloudReadReady]);
 
   useEffect(() => {
     if (dataReadyUser !== userId) return undefined;

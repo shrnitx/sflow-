@@ -106,6 +106,7 @@
 }
 
 .sf-task-check {
+  transition: background-color 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
   position: relative;
   display: inline-flex;
   align-items: center;
