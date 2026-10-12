@@ -8,7 +8,6 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { makeId } from "../utils/storage";
-import StudyMusicPlayer from "./StudyMusicPlayer";
 import {
   addDays, buildAdaptivePlan, buildIcs, calculateReadiness, cardsFromNotes,
   isoDate, nextReview, parseIcs, parseQuickCapture, requiredFinalScore
@@ -528,7 +527,7 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
             {timerRunning ? <button type="button" className="primary-button" onClick={pauseFocus}><Pause size={15} />Pause</button> : <button type="button" className="primary-button" onClick={startFocus} disabled={!selectedFocusTask}><Play size={15} />{secondsLeft === focusMinutes * 60 ? "Start focus" : secondsLeft > 0 ? "Resume" : "Start again"}</button>}
             <button type="button" className="ghost-button" onClick={resetFocus}><RotateCcw size={14} />Reset</button>
           </div>
-          <div className="sfplus-music"><div><Music2 size={16} /><span>Study music</span><small>Existing player, same StudyFlow workspace</small></div><StudyMusicPlayer /></div>
+          <div className="sfplus-music"><div><Music2 size={16} /><span>Study music</span><small>Shared player above the Toolkit, also used in Study Lab</small></div><p className="sfplus-hint">The same music player stays active while you move between Study Lab and Toolkit, so audio and controls do not duplicate.</p></div>
           {selectedFocusTask && <p className="sfplus-hint">Session will be logged against <b>{selectedFocusTask.title}</b>. A completed block records one focus session.</p>}
         </article>
 
