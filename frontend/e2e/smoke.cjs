@@ -295,7 +295,7 @@ async function main() {
     await page.getByPlaceholder("e.g. Physics mid-sem").fill("Study Lab Biology Exam");
     await page.getByLabel("Exam date").fill(futureDate(20));
     await page.getByRole("button", { name: "Save exam", exact: true }).click();
-    await page.getByText("Study Lab Biology Exam", { exact: true }).waitFor();
+    await page.locator(".sfw-exam-row").filter({ hasText: "Study Lab Biology Exam" }).waitFor();
 
     // Study Lab exams must appear in the same dashboard Exams list, not in a
     // second isolated collection.
