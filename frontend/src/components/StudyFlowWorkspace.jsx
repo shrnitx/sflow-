@@ -178,9 +178,16 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
         // only after a failed read; do not resurrect stale cached records after a
         // successful read that confirms the account has no such row.
         importLegacyExams(Array.isArray(remote.exams?.items) ? remote.exams.items : []);
-        const nextSyllabus = Array.isArray(remote.syllabus?.items) ? remote.syllabus.items : [];
-        const nextReminders = remote.reminders?.prefs && typeof remote.reminders.prefs === "object" ? remote.reminders.prefs : { notificationsEnabled: false, dailyReminderTime: "09:00" };
-        syncedWorkspaceRef.current = { syllabus: nextSyllabus, reminderPrefs: nextReminders };
+        const cloudSyllabus = Array.isArray(remote.syllabus?.items) ? remote.syllabus.items : [];
+        const cloudReminders = remote.reminders?.prefs && typeof remote.reminders.prefs === "object"
+          ? remote.reminders.prefs
+          : { notificationsEnabled: false, dailyReminderTime: "09:00" };
+        // Preserve a browser-only recovery copy if the cloud has never had a row
+        // for this feature. Once a cloud row exists, including an empty one, the
+        // remote value is authoritative and deliberate deletions stay deleted.
+        const nextSyllabus = remote.syllabus ? cloudSyllabus : fallback.syllabus;
+        const nextReminders = remote.reminders ? cloudReminders : fallback.reminders;
+        syncedWorkspaceRef.current = { syllabus: cloudSyllabus, reminderPrefs: cloudReminders };
         setSyllabus(nextSyllabus);
         setReminderPrefs(nextReminders);
         setCloudReadReady(true);
