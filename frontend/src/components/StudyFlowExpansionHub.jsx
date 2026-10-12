@@ -234,7 +234,6 @@ export default function StudyFlowExpansionHub({ user, tasks = [] }) {
       }
     } catch { setToast("That study-room invite is invalid."); }
     // Invite links are processed once when the hub mounts.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const notify = (message) => { setToast(message); window.setTimeout(() => setToast(""), 3500); };
