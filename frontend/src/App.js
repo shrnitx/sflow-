@@ -16,6 +16,7 @@ import {
   Plus,
   RotateCcw,
   Search,
+  Sparkles,
   Trash2,
   X,
 } from "lucide-react";
@@ -55,6 +56,7 @@ import { DAYS } from "./utils/timetable";
 import { areRecordsEqual, mergeOfflineCollection } from "./utils/offlineMerge";
 import StudyFlowHeroAnimation from "./components/StudyFlowHeroAnimation";
 import StudyFlowWorkspace from "./components/StudyFlowWorkspace";
+import StudyFlowPlus from "./components/StudyFlowPlus";
 import StudyMusicPlayer from "./components/StudyMusicPlayer";
 
 import "./App.css";
@@ -806,6 +808,7 @@ function App() {
             { id: "tasks", label: "Tasks", Icon: ListChecks },
             { id: "exams", label: "Exams", Icon: GraduationCap },
             { id: "studycoach", label: "Study Lab", Icon: BrainCircuit },
+            { id: "toolkit", label: "Toolkit", Icon: Sparkles },
             { id: "settings", label: "Settings", Icon: Settings },
           ].map(({ id, label, Icon }) => (
             <button
@@ -833,12 +836,19 @@ function App() {
           visible={activeSection === "settings"}
         />
 
+        <div
+          className="studyflow-music-shell"
+          style={activeSection === "studycoach" || activeSection === "toolkit" ? undefined : { display: "none" }}
+          aria-hidden={activeSection !== "studycoach" && activeSection !== "toolkit"}
+        >
+          <StudyMusicPlayer />
+        </div>
+
         <section
           className="studyflow-workspace-shell"
           style={activeSection === "studycoach" ? undefined : { display: "none" }}
           aria-hidden={activeSection !== "studycoach"}
         >
-          <StudyMusicPlayer />
           <StudyFlowWorkspace
             key={user.id}
             user={user}
@@ -850,6 +860,19 @@ function App() {
             setSessions={setFocusSessions}
           />
         </section>
+
+        {activeSection === "toolkit" && (
+          <StudyFlowPlus
+            user={user}
+            tasks={tasks}
+            setTasks={setTasks}
+            timetable={timetable}
+            setTimetable={setTimetable}
+            sessions={focusSessions}
+            setSessions={setFocusSessions}
+            onToast={setToast}
+          />
+        )}
 
         {activeSection !== "home" && dataSyncError && (
           <div className="cloud-sync-warning" role="alert">
