@@ -338,6 +338,8 @@ async function main() {
     process.stdout.write("PASS: Toolkit navigation and three feature phases render\n");
 
     // The same music-player instance must carry playback across Study Lab and Toolkit.
+    // The previous Study Lab test leaves Spotify selected; explicitly switch back to YouTube.
+    await page.getByRole("button", { name: "YouTube radio", exact: true }).click();
     await page.getByRole("button", { name: "Play music", exact: true }).click();
     const sharedMusicFrame = page.locator(".study-music-player-frame.youtube iframe");
     await sharedMusicFrame.waitFor();
