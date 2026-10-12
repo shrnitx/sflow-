@@ -111,7 +111,7 @@ export const TaskCard = ({ task, onToggle, onDelete }) => {
             className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
               task.completed
                 ? "bg-[#efe2c1] hover:bg-[#e2d09b] text-[#7a4b1c]"
-                : "bg-[#4b6b3a] hover:bg-[#3d5a2e] text-[#f7efd8]"
+                : "bg-[#4b6b3a] hover:bg-[var(--green)] text-[#f7efd8]"
             }`}
           >
             {task.completed ? (

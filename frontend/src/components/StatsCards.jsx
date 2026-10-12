@@ -4,10 +4,10 @@ import { ListChecks, Clock, CheckCircle2, Flame } from "lucide-react";
 const Card = ({ label, value, Icon, tint, testId }) => (
   <div
     data-testid={testId}
-    className="rounded-xl bg-[#fbf4e0] border border-[#d9c9a5] px-5 py-4 shadow-[0_1px_0_rgba(122,75,28,0.08)]"
+    className="rounded-xl bg-[var(--card-strong)] border border-[var(--line)] px-5 py-4 shadow-[0_1px_0_rgba(122,75,28,0.08)]"
   >
     <div className="flex items-center justify-between">
-      <span className="text-xs font-medium uppercase tracking-wider text-[#8a6a3c]">
+      <span className="text-xs font-medium uppercase tracking-wider text-[var(--muted)]">
         {label}
       </span>
       <span
@@ -18,7 +18,7 @@ const Card = ({ label, value, Icon, tint, testId }) => (
       </span>
     </div>
     <div
-      className="mt-2 font-serif text-3xl text-[#3b2411]"
+      className="mt-2 font-serif text-3xl text-[var(--ink)]"
       style={{ fontFamily: "'Fraunces', Georgia, serif" }}
     >
       {value}
@@ -42,28 +42,28 @@ export const StatsCards = ({ tasks }) => {
         label="Total Tasks"
         value={total}
         Icon={ListChecks}
-        tint={{ bg: "#efe2c1", fg: "#7a4b1c" }}
+        tint={{ bg: "var(--card-strong)", fg: "var(--brown)" }}
       />
       <Card
         testId="stat-pending"
         label="Pending"
         value={pending}
         Icon={Clock}
-        tint={{ bg: "#f2e2b8", fg: "#8a5a12" }}
+        tint={{ bg: "var(--orange-soft)", fg: "var(--orange)" }}
       />
       <Card
         testId="stat-completed"
         label="Completed"
         value={completed}
         Icon={CheckCircle2}
-        tint={{ bg: "#dbe7d1", fg: "#4b6b3a" }}
+        tint={{ bg: "var(--green-soft)", fg: "var(--green)" }}
       />
       <Card
         testId="stat-high"
         label="High Priority"
         value={high}
         Icon={Flame}
-        tint={{ bg: "#f2d4c4", fg: "#993a1c" }}
+        tint={{ bg: "var(--danger-soft)", fg: "var(--danger)" }}
       />
     </section>
   );

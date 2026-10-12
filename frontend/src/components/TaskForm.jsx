@@ -22,7 +22,7 @@ const initial = {
 };
 
 const inputCls =
-  "w-full rounded-md border border-[#d9c9a5] bg-[#fdf9ec] px-3 py-2 text-[#3b2411] placeholder:text-[#a4855a] focus:outline-none focus:ring-2 focus:ring-[#b98842]/40 focus:border-[#b98842] transition-colors";
+  "w-full rounded-md border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brown)]/40 focus:border-[var(--brown)] transition-colors";
 
 export const TaskForm = ({ onAdd }) => {
   const [values, setValues] = useState(initial);
@@ -62,10 +62,10 @@ export const TaskForm = ({ onAdd }) => {
   return (
     <section
       data-testid="task-form-section"
-      className="rounded-xl bg-[#fbf4e0] border border-[#d9c9a5] p-5 sm:p-6 shadow-[0_1px_0_rgba(122,75,28,0.08)]"
+      className="rounded-xl bg-[var(--card-strong)] border border-[var(--line)] p-5 sm:p-6 shadow-[0_1px_0_rgba(122,75,28,0.08)]"
     >
       <h2
-        className="font-serif text-2xl text-[#3b2411] mb-4"
+        className="font-serif text-2xl text-[var(--ink)] mb-4"
         style={{ fontFamily: "'Fraunces', Georgia, serif" }}
       >
         Add a new task
@@ -73,7 +73,7 @@ export const TaskForm = ({ onAdd }) => {
 
       <form onSubmit={handleSubmit} noValidate className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-[#6b4a24] mb-1" htmlFor="title">
+          <label className="block text-sm font-medium text-[var(--muted)] mb-1" htmlFor="title">
             Task Title
           </label>
           <input
@@ -86,14 +86,14 @@ export const TaskForm = ({ onAdd }) => {
             onChange={(e) => set("title", e.target.value)}
           />
           {errors.title && (
-            <p data-testid="error-title" className="mt-1 text-xs text-[#993a1c]">
+            <p data-testid="error-title" className="mt-1 text-xs text-[var(--danger)]">
               {errors.title}
             </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[#6b4a24] mb-1" htmlFor="subject">
+          <label className="block text-sm font-medium text-[var(--muted)] mb-1" htmlFor="subject">
             Subject
           </label>
           <select
@@ -111,14 +111,14 @@ export const TaskForm = ({ onAdd }) => {
             ))}
           </select>
           {errors.subject && (
-            <p data-testid="error-subject" className="mt-1 text-xs text-[#993a1c]">
+            <p data-testid="error-subject" className="mt-1 text-xs text-[var(--danger)]">
               {errors.subject}
             </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[#6b4a24] mb-1" htmlFor="deadline">
+          <label className="block text-sm font-medium text-[var(--muted)] mb-1" htmlFor="deadline">
             Deadline
           </label>
           <input
@@ -130,14 +130,14 @@ export const TaskForm = ({ onAdd }) => {
             onChange={(e) => set("deadline", e.target.value)}
           />
           {errors.deadline && (
-            <p data-testid="error-deadline" className="mt-1 text-xs text-[#993a1c]">
+            <p data-testid="error-deadline" className="mt-1 text-xs text-[var(--danger)]">
               {errors.deadline}
             </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[#6b4a24] mb-1" htmlFor="priority">
+          <label className="block text-sm font-medium text-[var(--muted)] mb-1" htmlFor="priority">
             Priority
           </label>
           <select
@@ -152,15 +152,15 @@ export const TaskForm = ({ onAdd }) => {
             <option value="High">High</option>
           </select>
           {errors.priority && (
-            <p data-testid="error-priority" className="mt-1 text-xs text-[#993a1c]">
+            <p data-testid="error-priority" className="mt-1 text-xs text-[var(--danger)]">
               {errors.priority}
             </p>
           )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-[#6b4a24] mb-1" htmlFor="description">
-            Description <span className="text-[#a4855a] font-normal">(optional)</span>
+          <label className="block text-sm font-medium text-[var(--muted)] mb-1" htmlFor="description">
+            Description <span className="text-[var(--muted)] font-normal">(optional)</span>
           </label>
           <input
             id="description"
@@ -177,7 +177,7 @@ export const TaskForm = ({ onAdd }) => {
           <button
             type="submit"
             data-testid="btn-add-task"
-            className="inline-flex items-center gap-2 rounded-md bg-[#7a4b1c] hover:bg-[#623b13] active:bg-[#4f2f0d] text-[#fdf9ec] px-5 py-2.5 text-sm font-medium shadow-sm transition-colors"
+            className="inline-flex items-center gap-2 rounded-md bg-[var(--brown)] hover:bg-[var(--brown-dark)] active:bg-[var(--brown-dark)] text-[var(--card)] px-5 py-2.5 text-sm font-medium shadow-sm transition-colors"
           >
             <Plus size={16} strokeWidth={2.5} />
             Add Task

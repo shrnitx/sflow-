@@ -2,7 +2,7 @@ import React from "react";
 import { Search } from "lucide-react";
 
 const controlCls =
-  "rounded-md border border-[#d9c9a5] bg-[#fdf9ec] px-3 py-2 text-sm text-[#3b2411] placeholder:text-[#a4855a] focus:outline-none focus:ring-2 focus:ring-[#b98842]/40 focus:border-[#b98842] transition-colors";
+  "rounded-md border border-[var(--line)] bg-[var(--card)] px-3 py-2 text-sm text-[var(--ink)] placeholder:text-[var(--muted)] focus:outline-none focus:ring-2 focus:ring-[var(--brown)]/40 focus:border-[var(--brown)] transition-colors";
 
 export const SearchFilter = ({
   search,
@@ -15,13 +15,13 @@ export const SearchFilter = ({
   return (
     <section
       data-testid="search-filter-section"
-      className="rounded-xl bg-[#fbf4e0] border border-[#d9c9a5] p-4 sm:p-5 shadow-[0_1px_0_rgba(122,75,28,0.08)]"
+      className="rounded-xl bg-[var(--card-strong)] border border-[var(--line)] p-4 sm:p-5 shadow-[0_1px_0_rgba(122,75,28,0.08)]"
     >
       <div className="flex flex-col md:flex-row md:items-center gap-3">
         <div className="relative flex-1">
           <Search
             size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a4855a]"
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"
           />
           <input
             data-testid="input-search"

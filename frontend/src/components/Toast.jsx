@@ -12,7 +12,7 @@ export const Toast = ({ message, onClose }) => {
   return (
     <div
       data-testid="toast"
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full bg-[#4b6b3a] text-[#f7efd8] px-4 py-2 shadow-lg text-sm animate-in fade-in"
+      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 rounded-full bg-[var(--green)] text-[var(--paper)] px-4 py-2 shadow-lg text-sm animate-in fade-in"
       role="status"
       aria-live="polite"
     >

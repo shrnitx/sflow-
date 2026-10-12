@@ -5,18 +5,18 @@ import { NotebookPen, SearchX } from "lucide-react";
 const EmptyState = ({ icon: Icon, title, subtitle, testId }) => (
   <div
     data-testid={testId}
-    className="rounded-xl border border-dashed border-[#d9c9a5] bg-[#fbf4e0]/60 py-14 px-6 text-center"
+    className="rounded-xl border border-dashed border-[var(--line)] bg-[var(--card-strong)]/60 py-14 px-6 text-center"
   >
-    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#efe2c1] text-[#7a4b1c] mb-3">
+    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--card-strong)] text-[var(--brown)] mb-3">
       <Icon size={22} />
     </div>
     <h3
-      className="font-serif text-xl text-[#3b2411]"
+      className="font-serif text-xl text-[var(--ink)]"
       style={{ fontFamily: "'Fraunces', Georgia, serif" }}
     >
       {title}
     </h3>
-    <p className="mt-1 text-sm text-[#6b4a24]">{subtitle}</p>
+    <p className="mt-1 text-sm text-[var(--muted)]">{subtitle}</p>
   </div>
 );
 
