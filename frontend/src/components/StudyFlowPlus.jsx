@@ -28,6 +28,19 @@ function safeRead(key) {
   try { const value = localStorage.getItem(key); return value ? JSON.parse(value) : null; }
   catch { return null; }
 }
+function stableValue(value) {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === "object") {
+    return Object.keys(value).sort().reduce((result, key) => {
+      result[key] = stableValue(value[key]);
+      return result;
+    }, {});
+  }
+  return value;
+}
+function sameValue(a, b) {
+  return JSON.stringify(stableValue(a)) === JSON.stringify(stableValue(b));
+}
 function clock(value) {
   const date = new Date();
   date.setHours(Math.floor(value / 60), value % 60, 0, 0);
@@ -95,6 +108,8 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
   const [phase, setPhase] = useState("daily");
   const [toolkit, setToolkit] = useState(() => safeRead(localKey(userId)) || blankData());
   const [cloudReady, setCloudReady] = useState(false);
+  const [cloudReadReady, setCloudReadReady] = useState(false);
+  const [cloudLoadAttempt, setCloudLoadAttempt] = useState(0);
   const [cloudState, setCloudState] = useState("loading");
   const [quickInput, setQuickInput] = useState("");
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -118,6 +133,8 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
   const [backupFile, setBackupFile] = useState(null);
   const previousTasks = useRef(null);
   const hydratedUser = useRef(null);
+  const currentToolkitRef = useRef(toolkit);
+  currentToolkitRef.current = toolkit;
   const skipHistoryRef = useRef(false);
 
   const notify = useCallback((message) => {
@@ -127,6 +144,7 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
   useEffect(() => {
     let active = true;
     setCloudReady(false);
+    setCloudReadReady(false);
     setCloudState("loading");
     setToolkit(safeRead(localKey(userId)) || blankData());
     previousTasks.current = Array.isArray(tasks) ? tasks : [];
@@ -135,6 +153,7 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
         const { data, error } = await supabase.from("studyflow_user_data").select("data").eq("user_id", userId).eq("record_id", "toolkit").maybeSingle();
         if (error) throw error;
         if (!active) return;
+        setCloudReadReady(true);
         if (data && data.data && typeof data.data === "object" && !Array.isArray(data.data)) {
           const local = safeRead(localKey(userId)) || blankData();
           const remote = data.data;
@@ -153,12 +172,14 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
     };
     if (userId) load();
     return () => { active = false; };
-  }, [userId]); // a user switch must not leak another account's data
+  }, [userId, cloudLoadAttempt]); // a user switch must not leak another account's data
 
   useEffect(() => {
     if (!userId || !cloudReady || hydratedUser.current !== userId) return undefined;
     try { localStorage.setItem(localKey(userId), JSON.stringify(toolkit)); }
     catch (error) { console.warn("StudyFlow Plus local save failed:", error); setCloudState("local"); }
+    // A failed cloud read must not be followed by writing a stale browser snapshot.
+    if (!cloudReadReady) { setCloudState("local"); return undefined; }
     setCloudState((state) => state === "local" ? state : "syncing");
     const timeout = window.setTimeout(async () => {
       try {
@@ -173,7 +194,69 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
       }
     }, 650);
     return () => window.clearTimeout(timeout);
-  }, [userId, toolkit, cloudReady]);
+  }, [userId, toolkit, cloudReady, cloudReadReady]);
+
+  useEffect(() => {
+    if (!userId || !cloudReadReady) return undefined;
+    let disposed = false;
+    let refreshTimer = null;
+
+    const refreshToolkit = async (event) => {
+      if (event?.new?.record_id && event.new.record_id !== "toolkit") return;
+      if (event?.old?.record_id && event.old.record_id !== "toolkit") return;
+      try {
+        const { data, error } = await supabase
+          .from("studyflow_user_data")
+          .select("data")
+          .eq("user_id", userId)
+          .eq("record_id", "toolkit")
+          .maybeSingle();
+        if (error) throw error;
+        if (disposed) return;
+        const remote = data?.data && typeof data.data === "object" && !Array.isArray(data.data)
+          ? data.data
+          : blankData();
+        const defaults = blankData();
+        const next = {
+          ...defaults,
+          ...remote,
+          grades: { ...defaults.grades, ...(remote.grades || {}) },
+          reminderPrefs: { ...defaults.reminderPrefs, ...(remote.reminderPrefs || {}) },
+          cards: Array.isArray(remote.cards) ? remote.cards : [],
+          materials: Array.isArray(remote.materials) ? remote.materials : [],
+          history: Array.isArray(remote.history) ? remote.history : [],
+        };
+        if (!sameValue(next, currentToolkitRef.current)) {
+          setToolkit(next);
+          setCloudState("synced");
+        }
+      } catch (error) {
+        console.warn("StudyFlow Plus realtime refresh failed:", error);
+      }
+    };
+
+    const scheduleRefresh = (event) => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => refreshToolkit(event), 180);
+    };
+    const channel = supabase
+      .channel("studyflow-toolkit-sync-" + userId)
+      .on("postgres_changes", { event: "*", schema: "public", table: "studyflow_user_data", filter: "user_id=eq." + userId }, scheduleRefresh)
+      .subscribe();
+
+    return () => {
+      disposed = true;
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      supabase.removeChannel(channel);
+    };
+  }, [userId, cloudReadReady]);
+
+  useEffect(() => {
+    if (!userId || cloudReadReady) return undefined;
+    const retry = () => setCloudLoadAttempt((attempt) => attempt + 1);
+    window.addEventListener("online", retry);
+    return () => window.removeEventListener("online", retry);
+  }, [userId, cloudReadReady]);
 
   // Keep a bounded, per-user undo history for task edits without duplicating the live task store.
   useEffect(() => {
