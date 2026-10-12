@@ -332,6 +332,82 @@ async function main() {
     await page.getByText("Internet connection available", { exact: true }).waitFor();
     process.stdout.write("PASS: reminder preferences, quiet hours and offline/install settings UI\n");
 
+    // StudyFlow Plus: the Toolkit keeps all additions inside the existing signed-in workspace.
+    await page.getByRole("button", { name: "Toolkit", exact: true }).click();
+    await page.getByRole("heading", { name: "Your academic command center", exact: true }).waitFor();
+    process.stdout.write("PASS: Toolkit navigation and three feature phases render\n");
+
+    // The same music-player instance must carry playback across Study Lab and Toolkit.
+    await page.getByRole("button", { name: "Play music", exact: true }).click();
+    const sharedMusicFrame = page.locator(".study-music-player-frame.youtube iframe");
+    await sharedMusicFrame.waitFor();
+    await page.getByRole("button", { name: "Study Lab", exact: true }).click();
+    await sharedMusicFrame.waitFor();
+    await page.getByRole("button", { name: "Toolkit", exact: true }).click();
+    await sharedMusicFrame.waitFor();
+    await page.getByRole("button", { name: "Stop music", exact: true }).click();
+    await page.locator(".study-music-player-frame").waitFor({ state: "detached" });
+    process.stdout.write("PASS: one music player is preserved across Study Lab and Toolkit\n");
+
+    await page.getByLabel("Quick capture a task").fill("Review genome mapping for Biology tomorrow high 45m");
+    await page.locator(".sfplus-inline-form").first().getByRole("button", { name: "Add", exact: true }).click();
+    await page.getByLabel("Choose a pending task").selectOption({ label: "Review genome mapping" });
+    await page.getByRole("button", { name: "Build / refresh plan" }).click();
+    await page.locator(".sfplus-plan-list").getByText("Review genome mapping", { exact: true }).waitFor();
+    process.stdout.write("PASS: quick capture and adaptive day planner\n");
+
+    await page.getByRole("button", { name: "Create subtasks", exact: true }).click();
+    await page.getByLabel("Focus task").selectOption({ label: "Review genome mapping · Clarify requirements and gather resources" });
+    await page.getByLabel("Duration").selectOption("15");
+    await page.getByRole("button", { name: "Start focus", exact: true }).click();
+    await page.getByRole("button", { name: "Pause", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Pause", exact: true }).click();
+    await page.getByRole("button", { name: "Reset", exact: true }).click();
+    process.stdout.write("PASS: assignment breakdown and task-linked focus room\n");
+
+    await page.getByRole("button", { name: "Learn & prepare", exact: true }).click();
+    await page.getByLabel("Material title").fill("CI Biology notes");
+    await page.getByLabel("Subject").fill("Biology");
+    await page.locator("#sfplus-material-file").setInputFiles({
+      name: "biology-notes.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("Mitosis :: Cell division"),
+    });
+    await page.getByRole("button", { name: "Save material", exact: true }).click();
+    await page.getByText("CI Biology notes", { exact: true }).waitFor();
+
+    await page.getByLabel("Question").fill("What is mitosis?");
+    await page.getByLabel("Answer").fill("Cell division that produces two daughter cells.");
+    await page.getByLabel("Subject").nth(1).fill("Biology");
+    await page.getByRole("button", { name: "Add flashcard", exact: true }).click();
+    await page.getByRole("heading", { name: "What is mitosis?", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Reveal answer", exact: true }).click();
+    await page.getByText("Cell division that produces two daughter cells.", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "Good", exact: true }).click();
+    await page.getByRole("heading", { name: "Exam readiness & grade simulator", exact: true }).waitFor();
+    process.stdout.write("PASS: course-material vault, flashcard review and exam readiness UI\n");
+
+    await page.getByRole("button", { name: "Sync & recover", exact: true }).click();
+    const toolkitCalendarCard = page.locator(".sfplus-card").filter({ has: page.getByRole("heading", { name: "Calendar import & export" }) });
+    const [toolkitCalendarDownload] = await Promise.all([
+      page.waitForEvent("download"),
+      toolkitCalendarCard.getByRole("button", { name: "Export calendar (.ics)", exact: true }).click(),
+    ]);
+    assert.match(await fs.readFile(await toolkitCalendarDownload.path(), "utf8"), /BEGIN:VCALENDAR/);
+    const [backupDownload] = await Promise.all([
+      page.waitForEvent("download"),
+      page.locator(".sfplus-toolbar").getByRole("button", { name: "Backup", exact: true }).click(),
+    ]);
+    const backupJson = JSON.parse(await fs.readFile(await backupDownload.path(), "utf8"));
+    assert.equal(backupJson.format, "studyflow-backup-v1");
+    assert.ok(Array.isArray(backupJson.tasks));
+    await page.getByRole("button", { name: "Enable browser notifications", exact: true }).click();
+    await page.getByText("Browser reminders are enabled while StudyFlow is open.", { exact: true }).waitFor();
+    await page.keyboard.press("Control+k");
+    await page.getByRole("dialog", { name: "Quick capture and search" }).waitFor();
+    await page.keyboard.press("Escape");
+    process.stdout.write("PASS: ICS export, validated backup export, reminders and Ctrl+K palette\n");
+
     await page.getByRole("button", { name: "Sign out", exact: true }).click();
     await page.getByRole("heading", { name: "Welcome Back", exact: true }).waitFor();
     await page.locator("#login-email").fill("ci@example.com");
