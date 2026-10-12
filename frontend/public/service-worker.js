@@ -1,4 +1,4 @@
-const CACHE_NAME = "studyflow-shell-v1";
+const CACHE_NAME = "studyflow-shell-v2";
 const CORE_ASSETS = ["/", "/index.html", "/manifest.json", "/studyflow-icon.svg"];
 
 async function prepareOfflineShell() {
