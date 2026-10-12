@@ -98,7 +98,8 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
   const [cloudState, setCloudState] = useState("loading");
   const [quickInput, setQuickInput] = useState("");
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [search, setSearch] = useState("");
+  const [materialSearch, setMaterialSearch] = useState("");
+  const [paletteSearch, setPaletteSearch] = useState("");
   const [taskForBreakdown, setTaskForBreakdown] = useState("");
   const [plan, setPlan] = useState(null);
   const [materialTitle, setMaterialTitle] = useState("");
@@ -448,7 +449,7 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
     const prefs = toolkit.reminderPrefs || blankData().reminderPrefs;
     if (!prefs.browserNotifications || !("Notification" in window) || Notification.permission !== "granted") return undefined;
     const check = () => {
-      if (document.visibilityState === "hidden" || quietActive(prefs)) return;
+      if (quietActive(prefs)) return;
       const today = isoDate();
       const noticeList = (tasks || []).filter((task) => !task.completed && task.deadline && task.deadline <= addDays(today, 1) && task.deadline >= today);
       noticeList.slice(0, 3).forEach((task) => {
@@ -473,7 +474,7 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
   };
 
   const dueTasks = pendingTasks.filter((task) => task.deadline && task.deadline <= addDays(isoDate(), 1)).slice(0, 6);
-  const materialQuery = search.trim().toLowerCase();
+  const materialQuery = materialSearch.trim().toLowerCase();
   const visibleMaterials = (toolkit.materials || []).filter((item) => !materialQuery || [item.title, item.subject, ...(item.tags || [])].join(" ").toLowerCase().includes(materialQuery));
   const activeReviewCard = (toolkit.cards || []).find((card) => card.id === reviewCardId) || dueCards[0] || null;
 
@@ -549,7 +550,7 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
             <label className="sfplus-label">Attach a file (max 25 MB)<input id="sfplus-material-file" type="file" onChange={(e) => setMaterialFile(e.target.files && e.target.files[0] || null)} /></label>
             <button className="primary-button" type="submit"><Plus size={15} />Save material</button>
           </form>
-          <div className="sfplus-search"><Search size={15} /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search materials, subjects or tags…" aria-label="Search materials" /></div>
+          <div className="sfplus-search"><Search size={15} /><input value={materialSearch} onChange={(e) => setMaterialSearch(e.target.value)} placeholder="Search materials, subjects or tags…" aria-label="Search materials" /></div>
           <div className="sfplus-material-list">{visibleMaterials.length ? visibleMaterials.map((item) => <div className="sfplus-material" key={item.id}><span className="sfplus-material-icon"><FileText size={17} /></span><div><strong>{item.title}</strong><small>{item.subject || "Uncategorized"}{item.tags && item.tags.length ? " · " + item.tags.join(", ") : ""}</small><small>{item.filename ? item.filename + " · " + Math.max(1, Math.round(item.size / 1024)) + " KB" + " · device-local file" : "Link / note only"}</small></div>{item.filename && <button className="sfplus-icon-button" type="button" title="Download file" onClick={() => downloadMaterial(item)}><Download size={15} /></button>}<button className="sfplus-icon-button" type="button" title="Remove material" onClick={() => deleteMaterial(item)}><Trash2 size={15} /></button></div>) : <p className="sfplus-hint">Your materials will appear here. Uploaded file bytes remain in this browser; only their details sync to your account.</p>}</div>
         </article>
 
@@ -629,8 +630,8 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
       <section className="sfplus-palette" role="dialog" aria-modal="true" aria-label="Quick capture and search">
         <div className="sfplus-palette-title"><Command size={18} /><strong>Quick capture</strong><button type="button" aria-label="Close" onClick={() => setPaletteOpen(false)}><X size={16} /></button></div>
         <form className="sfplus-inline-form" onSubmit={createQuickTask}><input autoFocus value={quickInput} onChange={(e) => setQuickInput(e.target.value)} maxLength={240} placeholder="Add task, deadline, priority, duration…" /><button className="primary-button" type="submit"><Plus size={15} />Add task</button></form>
-        <label className="sfplus-label">Find existing tasks<input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search titles…" /></label>
-        <div className="sfplus-palette-results">{pendingTasks.filter((task) => !search || task.title.toLowerCase().includes(search.toLowerCase())).slice(0, 8).map((task) => <button key={task.id} type="button" onClick={() => { setPaletteOpen(false); focusOnTask(task.id); }}><Search size={14} /><span>{task.title}</span><small>{task.deadline || "No deadline"}</small><ChevronRight size={14} /></button>)}</div>
+        <label className="sfplus-label">Find existing tasks<input value={paletteSearch} onChange={(e) => setPaletteSearch(e.target.value)} placeholder="Search titles…" /></label>
+        <div className="sfplus-palette-results">{pendingTasks.filter((task) => !paletteSearch || task.title.toLowerCase().includes(paletteSearch.toLowerCase())).slice(0, 8).map((task) => <button key={task.id} type="button" onClick={() => { setPaletteOpen(false); focusOnTask(task.id); }}><Search size={14} /><span>{task.title}</span><small>{task.deadline || "No deadline"}</small><ChevronRight size={14} /></button>)}</div>
         <p className="sfplus-hint">Keyboard shortcut: Ctrl+K or Cmd+K. Search result selects the task for a focus session.</p>
       </section>
     </div>}
