@@ -292,17 +292,20 @@ function App() {
           });
         }
 
-        if (nextTasks.length === 0 && cachedTasks.length > 0) {
+        // A pre-baseline browser cache may be recovered when the cloud is empty.
+        // Once a baseline exists, an empty cloud collection may represent intentional
+        // deletions on another device; never resurrect that data automatically.
+        if (!savedBaseline && results[0].length === 0 && cachedTasks.length > 0) {
           await syncUserCollection("tasks", user.id, cachedTasks);
           nextTasks = cachedTasks;
         }
 
-        if (nextTimetable.length === 0 && cachedTimetable.length > 0) {
+        if (!savedBaseline && results[1].length === 0 && cachedTimetable.length > 0) {
           await syncUserCollection("timetable", user.id, cachedTimetable);
           nextTimetable = cachedTimetable;
         }
 
-        if (nextFocusSessions.length === 0 && cachedFocusSessions.length > 0) {
+        if (!savedBaseline && results[2].length === 0 && cachedFocusSessions.length > 0) {
           await syncUserCollection("focusSessions", user.id, cachedFocusSessions);
           nextFocusSessions = cachedFocusSessions;
         }
