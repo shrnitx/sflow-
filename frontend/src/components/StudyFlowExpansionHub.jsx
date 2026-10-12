@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Activity, AlarmClock, ArrowDownToLine, ArrowUpFromLine, BookOpen, BrainCircuit, CalendarCheck, Check, CheckCircle2, Clock3, Copy, GraduationCap, Layers3, Plus, ShieldCheck, Sparkles, Target, Trash2, Users, Wifi, WifiOff, X } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
+import { mergeCloudState, sameCloudState } from "../utils/cloudStateMerge";
 import "./StudyFlowExpansionHub.css";
 
 const RECORD_ID = "expansion";
@@ -9,19 +10,6 @@ const makeId = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypt
 const keyFor = (userId) => "sflow-expansion:" + userId;
 const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
 const parseJSON = (value) => { try { return JSON.parse(value); } catch { return null; } };
-function stableValue(value) {
-  if (Array.isArray(value)) return value.map(stableValue);
-  if (value && typeof value === "object") {
-    return Object.keys(value).sort().reduce((result, key) => {
-      result[key] = stableValue(value[key]);
-      return result;
-    }, {});
-  }
-  return value;
-}
-function sameValue(a, b) {
-  return JSON.stringify(stableValue(a)) === JSON.stringify(stableValue(b));
-}
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const fmtDate = (v) => { if (!v) return "No date"; const d = new Date(v + "T00:00:00"); return Number.isNaN(d.getTime()) ? v : d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }); };
 const fmtTime = (seconds) => { const s = Math.max(0, Math.floor(seconds || 0)); return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); };
@@ -102,6 +90,7 @@ export default function StudyFlowExpansionHub({ user, tasks = [] }) {
   const [restoring, setRestoring] = useState(false);
   const currentDataRef = useRef(data);
   currentDataRef.current = data;
+  const syncedDataRef = useRef(null);
 
   useEffect(() => {
     let alive = true;
@@ -117,12 +106,16 @@ export default function StudyFlowExpansionHub({ user, tasks = [] }) {
         if (result.error) throw result.error;
         if (!alive) return;
         if (result.data?.data && typeof result.data.data === "object" && !Array.isArray(result.data.data)) {
-          const merged = { ...fresh(), ...fallback, ...result.data.data };
+          const remote = { ...fresh(), ...result.data.data };
+          syncedDataRef.current = remote;
+          const merged = { ...fresh(), ...fallback, ...remote };
           const roomInvite = parseJSON(new URLSearchParams(window.location.search).get("studyRoom") || "null");
           if (roomInvite && typeof roomInvite.name === "string" && typeof roomInvite.goal === "string") {
             merged.room = { ...roomInvite, joinedAt: new Date().toISOString() };
           }
           setData(merged);
+        } else {
+          syncedDataRef.current = fresh();
         }
         setCloudReadReady(true);
         setCloud("synced");
@@ -147,6 +140,7 @@ export default function StudyFlowExpansionHub({ user, tasks = [] }) {
       try {
         const result = await supabase.from("studyflow_user_data").upsert({ user_id: user.id, record_id: RECORD_ID, data, updated_at: new Date().toISOString() }, { onConflict: "user_id,record_id" });
         if (result.error) throw result.error;
+        syncedDataRef.current = data;
         setCloud("synced");
       } catch (error) { console.warn("Boost Lab cloud save failed:", error); setCloud("local"); }
     }, 700);
@@ -173,8 +167,11 @@ export default function StudyFlowExpansionHub({ user, tasks = [] }) {
         const remote = row?.data && typeof row.data === "object" && !Array.isArray(row.data)
           ? { ...fresh(), ...row.data }
           : fresh();
-        if (!sameValue(remote, currentDataRef.current)) {
-          setData(remote);
+        const base = syncedDataRef.current || remote;
+        const merged = mergeCloudState(base, currentDataRef.current, remote);
+        syncedDataRef.current = remote;
+        if (!sameCloudState(merged, currentDataRef.current)) {
+          setData(merged);
           setCloud("synced");
         }
       } catch (error) {

@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { makeId } from "../utils/storage";
+import { mergeCloudState, sameCloudState } from "../utils/cloudStateMerge";
 import { buildDailyPlan, createAssistantReply, dateKey, dateLabel, durationFor, sortPending, studySessionDate } from "../utils/studyFlowLogic";
 import "./StudyFlowWorkspace.css";
 
@@ -21,20 +22,6 @@ function safeRead(key, fallback) {
   }
 }
 
-function stableValue(value) {
-  if (Array.isArray(value)) return value.map(stableValue);
-  if (value && typeof value === "object") {
-    return Object.keys(value).sort().reduce((result, key) => {
-      result[key] = stableValue(value[key]);
-      return result;
-    }, {});
-  }
-  return value;
-}
-
-function sameValue(a, b) {
-  return JSON.stringify(stableValue(a)) === JSON.stringify(stableValue(b));
-}
 
 function isExamTask(item) {
   const type = String(item?.type || item?.category || "").toLowerCase();
@@ -119,6 +106,7 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
   const lastTick = useRef(0);
   const currentWorkspaceData = useRef({ syllabus, reminderPrefs, messages });
   currentWorkspaceData.current = { syllabus, reminderPrefs, messages };
+  const syncedWorkspaceRef = useRef(null);
 
   const importLegacyExams = useCallback((records) => {
     if (!Array.isArray(records) || !records.length) return;
@@ -192,6 +180,7 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
         importLegacyExams(Array.isArray(remote.exams?.items) ? remote.exams.items : []);
         const nextSyllabus = Array.isArray(remote.syllabus?.items) ? remote.syllabus.items : [];
         const nextReminders = remote.reminders?.prefs && typeof remote.reminders.prefs === "object" ? remote.reminders.prefs : { notificationsEnabled: false, dailyReminderTime: "09:00" };
+        syncedWorkspaceRef.current = { syllabus: nextSyllabus, reminderPrefs: nextReminders };
         setSyllabus(nextSyllabus);
         setReminderPrefs(nextReminders);
         setCloudReadReady(true);
@@ -232,8 +221,12 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
           ? remote.reminders.prefs
           : { notificationsEnabled: false, dailyReminderTime: "09:00" };
 
-        if (!sameValue(remoteSyllabus, currentWorkspaceData.current.syllabus)) setSyllabus(remoteSyllabus);
-        if (!sameValue(remoteReminders, currentWorkspaceData.current.reminderPrefs)) setReminderPrefs(remoteReminders);
+        const base = syncedWorkspaceRef.current || { syllabus: remoteSyllabus, reminderPrefs: remoteReminders };
+        const mergedSyllabus = mergeCloudState(base.syllabus, currentWorkspaceData.current.syllabus, remoteSyllabus);
+        const mergedReminders = mergeCloudState(base.reminderPrefs, currentWorkspaceData.current.reminderPrefs, remoteReminders);
+        syncedWorkspaceRef.current = { syllabus: remoteSyllabus, reminderPrefs: remoteReminders };
+        if (!sameCloudState(mergedSyllabus, currentWorkspaceData.current.syllabus)) setSyllabus(mergedSyllabus);
+        if (!sameCloudState(mergedReminders, currentWorkspaceData.current.reminderPrefs)) setReminderPrefs(mergedReminders);
         importLegacyExams(Array.isArray(remote.exams?.items) ? remote.exams.items : []);
       } catch (error) {
         console.error("StudyFlow workspace realtime refresh failed:", error);
@@ -291,6 +284,7 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
         ];
         const { error } = await supabase.from("studyflow_user_data").upsert(rows, { onConflict: "user_id,record_id" });
         if (error) throw error;
+        syncedWorkspaceRef.current = { syllabus, reminderPrefs };
         setCloudStatus("synced");
       } catch (error) {
         console.error("StudyFlow workspace cloud save failed:", error);

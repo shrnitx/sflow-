@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { makeId } from "../utils/storage";
+import { mergeCloudState, sameCloudState } from "../utils/cloudStateMerge";
 import {
   addDays, buildAdaptivePlan, buildIcs, calculateReadiness, cardsFromNotes,
   isoDate, nextReview, parseIcs, parseQuickCapture, requiredFinalScore
@@ -27,19 +28,6 @@ const fileKey = (userId, id) => userId + ":" + id;
 function safeRead(key) {
   try { const value = localStorage.getItem(key); return value ? JSON.parse(value) : null; }
   catch { return null; }
-}
-function stableValue(value) {
-  if (Array.isArray(value)) return value.map(stableValue);
-  if (value && typeof value === "object") {
-    return Object.keys(value).sort().reduce((result, key) => {
-      result[key] = stableValue(value[key]);
-      return result;
-    }, {});
-  }
-  return value;
-}
-function sameValue(a, b) {
-  return JSON.stringify(stableValue(a)) === JSON.stringify(stableValue(b));
 }
 function clock(value) {
   const date = new Date();
@@ -135,6 +123,7 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
   const hydratedUser = useRef(null);
   const currentToolkitRef = useRef(toolkit);
   currentToolkitRef.current = toolkit;
+  const syncedToolkitRef = useRef(null);
   const skipHistoryRef = useRef(false);
 
   const notify = useCallback((message) => {
@@ -157,7 +146,19 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
         if (data && data.data && typeof data.data === "object" && !Array.isArray(data.data)) {
           const local = safeRead(localKey(userId)) || blankData();
           const remote = data.data;
-          setToolkit({ ...blankData(), ...local, ...remote, grades: { ...blankData().grades, ...(local.grades || {}), ...(remote.grades || {}) }, reminderPrefs: { ...blankData().reminderPrefs, ...(local.reminderPrefs || {}), ...(remote.reminderPrefs || {}) }, cards: Array.isArray(remote.cards) ? remote.cards : local.cards, materials: Array.isArray(remote.materials) ? remote.materials : local.materials, history: Array.isArray(remote.history) ? remote.history : local.history });
+          const defaults = blankData();
+          const normalizedRemote = {
+            ...defaults, ...remote,
+            grades: { ...defaults.grades, ...(remote.grades || {}) },
+            reminderPrefs: { ...defaults.reminderPrefs, ...(remote.reminderPrefs || {}) },
+            cards: Array.isArray(remote.cards) ? remote.cards : [],
+            materials: Array.isArray(remote.materials) ? remote.materials : [],
+            history: Array.isArray(remote.history) ? remote.history : [],
+          };
+          syncedToolkitRef.current = normalizedRemote;
+          setToolkit({ ...defaults, ...local, ...normalizedRemote, grades: { ...defaults.grades, ...(local.grades || {}), ...(remote.grades || {}) }, reminderPrefs: { ...defaults.reminderPrefs, ...(local.reminderPrefs || {}), ...(remote.reminderPrefs || {}) }, cards: Array.isArray(remote.cards) ? remote.cards : local.cards, materials: Array.isArray(remote.materials) ? remote.materials : local.materials, history: Array.isArray(remote.history) ? remote.history : local.history });
+        } else {
+          syncedToolkitRef.current = blankData();
         }
         setCloudState("synced");
       } catch (error) {
@@ -187,6 +188,7 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
           user_id: userId, record_id: "toolkit", data: toolkit, updated_at: new Date().toISOString()
         }, { onConflict: "user_id,record_id" });
         if (error) throw error;
+        syncedToolkitRef.current = toolkit;
         setCloudState("synced");
       } catch (error) {
         console.warn("StudyFlow Plus cloud save failed:", error);
@@ -226,8 +228,11 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
           materials: Array.isArray(remote.materials) ? remote.materials : [],
           history: Array.isArray(remote.history) ? remote.history : [],
         };
-        if (!sameValue(next, currentToolkitRef.current)) {
-          setToolkit(next);
+        const base = syncedToolkitRef.current || remote;
+        const merged = mergeCloudState(base, currentToolkitRef.current, next);
+        syncedToolkitRef.current = next;
+        if (!sameCloudState(merged, currentToolkitRef.current)) {
+          setToolkit(merged);
           setCloudState("synced");
         }
       } catch (error) {
