@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Activity, AlarmClock, ArrowDownToLine, ArrowUpFromLine, BookOpen, BrainCircuit, CalendarCheck, Check, CheckCircle2, Clock3, Copy, GraduationCap, Layers3, Plus, ShieldCheck, Sparkles, Target, Trash2, Users, Wifi, WifiOff, X } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import "./StudyFlowExpansionHub.css";
@@ -9,6 +9,19 @@ const makeId = () => (typeof crypto !== "undefined" && crypto.randomUUID ? crypt
 const keyFor = (userId) => "sflow-expansion:" + userId;
 const today = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
 const parseJSON = (value) => { try { return JSON.parse(value); } catch { return null; } };
+function stableValue(value) {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === "object") {
+    return Object.keys(value).sort().reduce((result, key) => {
+      result[key] = stableValue(value[key]);
+      return result;
+    }, {});
+  }
+  return value;
+}
+function sameValue(a, b) {
+  return JSON.stringify(stableValue(a)) === JSON.stringify(stableValue(b));
+}
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 const fmtDate = (v) => { if (!v) return "No date"; const d = new Date(v + "T00:00:00"); return Number.isNaN(d.getTime()) ? v : d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }); };
 const fmtTime = (seconds) => { const s = Math.max(0, Math.floor(seconds || 0)); return String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0"); };
@@ -64,6 +77,7 @@ export default function StudyFlowExpansionHub({ user, tasks = [] }) {
   const [data, setData] = useState(() => { const local = typeof window === "undefined" ? null : parseJSON(localStorage.getItem(keyFor(user?.id || "guest")) || "null"); return { ...fresh(), ...(local && typeof local === "object" ? local : {}) }; });
   const [hydrated, setHydrated] = useState(false);
   const [cloudReadReady, setCloudReadReady] = useState(false);
+  const [cloudLoadAttempt, setCloudLoadAttempt] = useState(0);
   const [cloud, setCloud] = useState("loading");
   const [toast, setToast] = useState("");
   const [topics, setTopics] = useState("");
@@ -86,6 +100,8 @@ export default function StudyFlowExpansionHub({ user, tasks = [] }) {
   const [roomGoal, setRoomGoal] = useState("Finish one focused study session");
   const [roomMinutes, setRoomMinutes] = useState("25");
   const [restoring, setRestoring] = useState(false);
+  const currentDataRef = useRef(data);
+  currentDataRef.current = data;
 
   useEffect(() => {
     let alive = true;
@@ -116,7 +132,7 @@ export default function StudyFlowExpansionHub({ user, tasks = [] }) {
       } finally { if (alive) setHydrated(true); }
     })();
     return () => { alive = false; };
-  }, [user.id]);
+  }, [user.id, cloudLoadAttempt]);
 
   useEffect(() => {
     if (!user?.id || !hydrated) return undefined;
@@ -136,6 +152,57 @@ export default function StudyFlowExpansionHub({ user, tasks = [] }) {
     }, 700);
     return () => window.clearTimeout(timeout);
   }, [data, hydrated, cloudReadReady, user?.id]);
+
+  useEffect(() => {
+    if (!user?.id || !cloudReadReady) return undefined;
+    let disposed = false;
+    let refreshTimer = null;
+
+    const refreshExpansion = async (event) => {
+      if (event?.new?.record_id && event.new.record_id !== RECORD_ID) return;
+      if (event?.old?.record_id && event.old.record_id !== RECORD_ID) return;
+      try {
+        const { data: row, error } = await supabase
+          .from("studyflow_user_data")
+          .select("data")
+          .eq("user_id", user.id)
+          .eq("record_id", RECORD_ID)
+          .maybeSingle();
+        if (error) throw error;
+        if (disposed) return;
+        const remote = row?.data && typeof row.data === "object" && !Array.isArray(row.data)
+          ? { ...fresh(), ...row.data }
+          : fresh();
+        if (!sameValue(remote, currentDataRef.current)) {
+          setData(remote);
+          setCloud("synced");
+        }
+      } catch (error) {
+        console.warn("Boost Lab realtime refresh failed:", error);
+      }
+    };
+    const scheduleRefresh = (event) => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(() => refreshExpansion(event), 180);
+    };
+    const channel = supabase
+      .channel("studyflow-boostlab-sync-" + user.id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "studyflow_user_data", filter: "user_id=eq." + user.id }, scheduleRefresh)
+      .subscribe();
+
+    return () => {
+      disposed = true;
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      supabase.removeChannel(channel);
+    };
+  }, [user.id, cloudReadReady]);
+
+  useEffect(() => {
+    if (!user?.id || cloudReadReady) return undefined;
+    const retry = () => setCloudLoadAttempt((attempt) => attempt + 1);
+    window.addEventListener("online", retry);
+    return () => window.removeEventListener("online", retry);
+  }, [user?.id, cloudReadReady]);
 
   useEffect(() => {
     const tick = () => setSecondsLeft(data.focus?.endsAt ? Math.max(0, Math.ceil((data.focus.endsAt - Date.now()) / 1000)) : 0);
