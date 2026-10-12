@@ -1,3 +1,5 @@
+import { mergeCloudState } from "./cloudStateMerge";
+
 function stableValue(value) {
   if (Array.isArray(value)) return value.map(stableValue);
   if (value && typeof value === "object") {
@@ -48,15 +50,37 @@ export function mergeOfflineCollection(cloudRecords, localRecords, baselineRecor
     const hasCloud = cloud.has(id);
     const baselineRecord = baseline.get(id);
     const localRecord = local.get(id);
-    const localChanged =
-      hasLocal !== hadBaseline ||
-      (hasLocal && hadBaseline && !sameRecord(localRecord, baselineRecord));
+    const cloudRecord = cloud.get(id);
 
-    if (localChanged) {
-      if (hasLocal) merged.set(id, localRecord);
+    if (!hadBaseline) {
+      if (hasLocal && hasCloud) {
+        merged.set(id, mergeCloudState({}, localRecord, cloudRecord));
+      } else if (hasLocal) {
+        merged.set(id, localRecord);
+      } else if (hasCloud) {
+        merged.set(id, cloudRecord);
+      }
       return;
     }
-    if (hasCloud) merged.set(id, cloud.get(id));
+
+    if (!hasLocal) {
+      if (!hasCloud) return;
+      // A local deletion wins only when the cloud row has not changed since the
+      // baseline. Preserve a remote edit rather than discarding newer work.
+      if (!sameRecord(cloudRecord, baselineRecord)) merged.set(id, cloudRecord);
+      return;
+    }
+
+    if (!hasCloud) {
+      // A remote deletion wins for untouched rows, but an unsynced local edit
+      // must remain recoverable until it can be written or reconciled.
+      if (!sameRecord(localRecord, baselineRecord)) merged.set(id, localRecord);
+      return;
+    }
+
+    // Merge independent field edits within the same record as well as additions
+    // and deletions across the collection. Conflicting scalar edits favor local.
+    merged.set(id, mergeCloudState(baselineRecord, localRecord, cloudRecord));
   });
 
   return [...merged.values()];

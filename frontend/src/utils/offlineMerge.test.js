@@ -43,6 +43,16 @@ describe("offline collection reconciliation", () => {
     ]);
   });
 
+  test("merges independent fields when the same task changes on two devices", () => {
+    const baseline = [{ id: "one", title: "Original", completed: false, priority: "Medium" }];
+    const local = [{ id: "one", title: "Edited locally", completed: false, priority: "Medium" }];
+    const cloud = [{ id: "one", title: "Original", completed: true, priority: "High" }];
+
+    expect(mergeOfflineCollection(cloud, local, baseline)).toEqual([
+      { id: "one", title: "Edited locally", completed: true, priority: "High" },
+    ]);
+  });
+
   test("recognizes equivalent records independent of object key order", () => {
     expect(areRecordsEqual(
       [{ id: "a", title: "Task", metadata: { room: "LT-23", faculty: "Dr X" } }],
