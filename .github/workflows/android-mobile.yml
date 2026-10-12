@@ -29,8 +29,6 @@ jobs:
         working-directory: frontend
     env:
       CI: "true"
-      REACT_APP_SUPABASE_URL: https://example.supabase.co
-      REACT_APP_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_only_dummy_value
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -63,6 +61,29 @@ jobs:
 
       - name: Validate Capacitor configuration
         run: node -e "const c=require('./capacitor.config.json'); if(c.appId!=='com.sflow.studyflow'||c.webDir!=='build') process.exit(1);"
+
+      - name: Validate Supabase configuration
+        run: |
+          node <<'NODE'
+          require('dotenv').config({ path: '.env' });
+          const rawUrl = process.env.REACT_APP_SUPABASE_URL;
+          const key = process.env.REACT_APP_SUPABASE_PUBLISHABLE_KEY;
+          let url;
+          try { url = new URL(rawUrl); } catch (_) {
+            console.error('REACT_APP_SUPABASE_URL is missing or invalid in frontend/.env');
+            process.exit(1);
+          }
+          if (url.protocol !== 'https:' || !url.hostname.endsWith('.supabase.co')) {
+            console.error('REACT_APP_SUPABASE_URL must be the HTTPS URL of the real Supabase project');
+            process.exit(1);
+          }
+          if (!key || key.includes('dummy') || key.includes('example') ||
+              !(key.startsWith('sb_publishable_') || key.startsWith('eyJ'))) {
+            console.error('REACT_APP_SUPABASE_PUBLISHABLE_KEY is missing or looks like a placeholder');
+            process.exit(1);
+          }
+          console.log('Supabase URL and public client key are configured (key value hidden).');
+          NODE
 
       - name: Run unit tests
         run: npm test -- --watchAll=false
