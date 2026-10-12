@@ -58,6 +58,7 @@ import StudyFlowHeroAnimation from "./components/StudyFlowHeroAnimation";
 import StudyFlowWorkspace from "./components/StudyFlowWorkspace";
 import StudyFlowPlus from "./components/StudyFlowPlus";
 import StudyMusicPlayer from "./components/StudyMusicPlayer";
+import StudyFlowExpansionHub from "./components/StudyFlowExpansionHub";
 
 import "./App.css";
 
@@ -809,6 +810,7 @@ function App() {
             { id: "exams", label: "Exams", Icon: GraduationCap },
             { id: "studycoach", label: "Study Lab", Icon: BrainCircuit },
             { id: "toolkit", label: "Toolkit", Icon: Sparkles },
+            { id: "boostlab", label: "Boost Lab", Icon: BrainCircuit },
             { id: "settings", label: "Settings", Icon: Settings },
           ].map(({ id, label, Icon }) => (
             <button
@@ -877,6 +879,14 @@ function App() {
             onToast={setToast}
             active={activeSection === "toolkit"}
           />
+        </section>
+
+        <section
+          className="studyflow-expansion-shell"
+          style={activeSection === "boostlab" ? undefined : { display: "none" }}
+          aria-hidden={activeSection !== "boostlab"}
+        >
+          <StudyFlowExpansionHub key={user.id} user={user} tasks={tasks} />
         </section>
 
         {activeSection !== "home" && dataSyncError && (
