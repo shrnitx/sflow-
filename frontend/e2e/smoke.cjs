@@ -365,7 +365,7 @@ async function main() {
     await page.getByRole("button", { name: "Reset", exact: true }).click();
     process.stdout.write("PASS: assignment breakdown and task-linked focus room\n");
 
-    await page.getByRole("button", { name: "Learn & prepare", exact: true }).click();
+    await page.getByRole("button", { name: /Learn & prepare/ }).click();
     await page.getByLabel("Material title").fill("CI Biology notes");
     await page.locator(".sfplus-card").filter({ has: page.getByRole("heading", { name: "Course materials vault", exact: true }) }).getByLabel("Subject").fill("Biology");
     await page.locator("#sfplus-material-file").setInputFiles({
@@ -387,7 +387,7 @@ async function main() {
     await page.getByRole("heading", { name: "Exam readiness & grade simulator", exact: true }).waitFor();
     process.stdout.write("PASS: course-material vault, flashcard review and exam readiness UI\n");
 
-    await page.getByRole("button", { name: "Sync & recover", exact: true }).click();
+    await page.getByRole("button", { name: /Sync & recover/ }).click();
     const toolkitCalendarCard = page.locator(".sfplus-card").filter({ has: page.getByRole("heading", { name: "Calendar import & export" }) });
     const [toolkitCalendarDownload] = await Promise.all([
       page.waitForEvent("download"),
