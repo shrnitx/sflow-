@@ -1,0 +1,114 @@
+name: StudyFlow Android App
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/android-mobile.yml"
+  push:
+    branches: [main]
+    paths:
+      - "frontend/**"
+      - ".github/workflows/android-mobile.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-mobile-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android-debug:
+    name: Build and verify Android debug APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    env:
+      CI: "true"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          # The legacy "tools" package was removed from recent Android SDK repos.
+          tools: false
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0"
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install pinned Capacitor 8 tooling
+        run: npm install --no-save --package-lock=false --legacy-peer-deps @capacitor/core@8.0.0 @capacitor/cli@8.0.0 @capacitor/android@8.0.0
+
+      - name: Validate Capacitor configuration
+        run: node -e "const c=require('./capacitor.config.json'); if(c.appId!=='com.sflow.studyflow'||c.webDir!=='build') process.exit(1);"
+
+      - name: Validate Supabase configuration
+        run: |
+          node <<'NODE'
+          require('dotenv').config({ path: '.env' });
+          const rawUrl = process.env.REACT_APP_SUPABASE_URL;
+          const key = process.env.REACT_APP_SUPABASE_PUBLISHABLE_KEY;
+          let url;
+          try { url = new URL(rawUrl); } catch (_) {
+            console.error('REACT_APP_SUPABASE_URL is missing or invalid in frontend/.env');
+            process.exit(1);
+          }
+          if (url.protocol !== 'https:' || !url.hostname.endsWith('.supabase.co')) {
+            console.error('REACT_APP_SUPABASE_URL must be the HTTPS URL of the real Supabase project');
+            process.exit(1);
+          }
+          if (!key || key.includes('dummy') || key.includes('example') ||
+              !(key.startsWith('sb_publishable_') || key.startsWith('eyJ'))) {
+            console.error('REACT_APP_SUPABASE_PUBLISHABLE_KEY is missing or looks like a placeholder');
+            process.exit(1);
+          }
+          console.log('Supabase URL and public client key are configured (key value hidden).');
+          NODE
+
+      - name: Run unit tests
+        run: npm test -- --watchAll=false
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Generate Android project and sync web assets
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Build Android debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug
+
+      - name: Verify APK exists
+        run: test -s android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload installable debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: studyflow-android-debug
+          path: frontend/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
