@@ -35,6 +35,14 @@ describe("StudyFlow Plus feature logic", () => {
     expect(result.blocks.map((block) => block.task.id)).toEqual(["c"]);
   });
 
+  test("parent task returns to the plan after all its subtasks are complete", () => {
+    const result = buildAdaptivePlan([
+      { id: "p", title: "Assignment", estimatedMinutes: 60, completed: false },
+      { id: "c", title: "Assignment step", parentTaskId: "p", estimatedMinutes: 20, completed: true }
+    ], [], new Date("2026-10-12T09:00:00"));
+    expect(result.blocks.map((block) => block.task.id)).toEqual(["p"]);
+  });
+
   test("calendar importer parses all-day event titles", () => {
     expect(parseIcs("BEGIN:VCALENDAR\nBEGIN:VEVENT\nSUMMARY:Biology exam\nDTSTART;VALUE=DATE:20261020\nEND:VEVENT\nEND:VCALENDAR")).toMatchObject([
       { title: "Biology exam", deadline: "2026-10-20", type: "exam" }

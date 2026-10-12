@@ -62,9 +62,15 @@ export function buildAdaptivePlan(tasks, timetable, now = new Date()) {
   const day = now.getDay();
   const minute = now.getHours() * 60 + now.getMinutes();
   const endOfDay = 22 * 60;
-  const hasChildren = new Set((tasks || []).filter((task) => task && task.parentTaskId).map((task) => task.parentTaskId));
+  // Hide a parent task only while it has unfinished subtasks. Once every
+  // subtask is complete, surface the parent again as the final review/submit step.
+  const parentsWithIncompleteChildren = new Set(
+    (Array.isArray(tasks) ? tasks : [])
+      .filter((task) => task && task.parentTaskId && !task.completed)
+      .map((task) => task.parentTaskId)
+  );
   const pending = (Array.isArray(tasks) ? tasks : [])
-    .filter((task) => task && !task.completed && !hasChildren.has(task.id))
+    .filter((task) => task && !task.completed && !parentsWithIncompleteChildren.has(task.id))
     .slice()
     .sort((a, b) => {
       const rank = { Urgent: 0, High: 1, Medium: 2, Low: 3 };
