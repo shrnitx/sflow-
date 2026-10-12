@@ -16,6 +16,20 @@
   --orange-soft: #f5dfd0;
   --shadow: 0 18px 45px rgba(87, 56, 22, 0.1);
   --shadow-small: 0 5px 18px rgba(87, 56, 22, 0.08);
+  --brown-rgb: 122, 75, 28;
+  --green-rgb: 85, 118, 75;
+  --orange-rgb: 169, 85, 37;
+  --danger: #9a3b1f;
+  --danger-soft: #f5dfd0;
+  --accent: var(--brown);
+  --accent-hover: var(--brown-dark);
+  --accent-soft: var(--card-strong);
+  --success: var(--green);
+  --success-soft: var(--green-soft);
+  --warning: var(--orange);
+  --warning-soft: var(--orange-soft);
+  --surface: var(--card);
+  --surface-strong: var(--card-strong);
 }
 
 * {
