@@ -52,3 +52,21 @@ Its storage policies allow authenticated users to read, upload, update, or delet
 GitHub Actions runs a production build and unit tests, plus a Chromium browser smoke test for core workflows. CI uses a dummy Supabase URL and stubs Auth/Data API calls, so passing CI validates the frontend and its mocked UI flows, not real-user credentials or external provider playback.
 
 Calendar integration currently uses standard ICS files; automatic two-way Google/Outlook sync requires OAuth setup and server-side token handling. Browser deadline reminders run while the app is open and the browser allows it; closed-app push delivery is not configured.
+
+## Boost Lab
+
+Boost Lab is an additional workspace in the existing dashboard; it does not replace Study Lab, Toolkit, music, timetable, tasks, or exams. It adds:
+
+1. Smart syllabus planner using topic importance, difficulty, daily study hours, and exam date.
+2. Notes-to-recall-card generator.
+3. Topic weakness analysis from saved self-test results.
+4. Attendance tracker with configurable target percentages and attendance projections.
+5. Timed recall-card exam simulation.
+6. Assignment/project tracking with milestones.
+7. Persistent in-app focus shield and session log.
+8. Shareable study-room invite briefs.
+9. Local-first storage, cloud sync to the account-scoped `studyflow_user_data` record `expansion`, plus JSON backup and restore.
+10. Weekly study review based on saved focus logs, quiz scores, revision progress, open projects, and upcoming tasks.
+
+The syllabus planner and notes-card generator are local deterministic utilities; no LLM provider is configured for this feature set. The focus shield overlays StudyFlow itself but does not block other websites or desktop applications. Room links share a room brief and goal; real-time participant presence and synchronized timers require a realtime room service and are not currently provided. Cloud persistence depends on a working Supabase connection and the existing per-user row policies. Offline edits remain browser-local until a later sync succeeds.
+
