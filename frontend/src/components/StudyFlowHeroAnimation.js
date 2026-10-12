@@ -235,8 +235,8 @@ function StudyFlowHeroAnimation({ tasks = [] }) {
             <span
               className="sf-progress-ring"
               style={{
-                background: "conic-gradient(#10B981 0deg " + progressAngle +
-                  "deg, #E2E8F0 " + progressAngle + "deg 360deg)",
+                background: "conic-gradient(var(--green) 0deg " + progressAngle +
+                  "deg, var(--line) " + progressAngle + "deg 360deg)",
               }}
             >
               <span>{progressPercent}%</span>
