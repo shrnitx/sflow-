@@ -361,9 +361,21 @@ async function main() {
     await page.getByLabel("Duration").selectOption("15");
     await page.getByRole("button", { name: "Start focus", exact: true }).click();
     await page.getByRole("button", { name: "Pause", exact: true }).waitFor();
+    const focusSeconds = (value) => {
+      const match = String(value || "").match(/^(\d{2}):(\d{2})$/);
+      assert.ok(match, "Toolkit focus timer should show MM:SS");
+      return Number(match[1]) * 60 + Number(match[2]);
+    };
+    const beforeToolkitNavigation = focusSeconds(await page.locator(".sfplus-timer").innerText());
+    await page.waitForTimeout(1100);
+    await page.getByRole("button", { name: "Tasks", exact: true }).click();
+    await page.waitForTimeout(1100);
+    await page.getByRole("button", { name: "Toolkit", exact: true }).click();
+    const afterToolkitNavigation = focusSeconds(await page.locator(".sfplus-timer").innerText());
+    assert.ok(afterToolkitNavigation < beforeToolkitNavigation, "Toolkit focus timer must continue when navigating away and back");
     await page.getByRole("button", { name: "Pause", exact: true }).click();
     await page.getByRole("button", { name: "Reset", exact: true }).click();
-    process.stdout.write("PASS: assignment breakdown and task-linked focus room\n");
+    process.stdout.write("PASS: assignment breakdown and focus timer persists across navigation\n");
 
     await page.getByRole("button", { name: /Learn & prepare/ }).click();
     await page.getByLabel("Material title").fill("CI Biology notes");

@@ -90,7 +90,7 @@ function safeParseBackup(fileText) {
   return parsed;
 }
 
-export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTimetable, sessions, setSessions, onToast }) {
+export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTimetable, sessions, setSessions, onToast, active = true }) {
   const userId = user && user.id;
   const [phase, setPhase] = useState("daily");
   const [toolkit, setToolkit] = useState(() => safeRead(localKey(userId)) || blankData());
@@ -117,6 +117,7 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
   const [backupFile, setBackupFile] = useState(null);
   const previousTasks = useRef(null);
   const hydratedUser = useRef(null);
+  const skipHistoryRef = useRef(false);
 
   const notify = useCallback((message) => {
     if (typeof onToast === "function") onToast(message);
@@ -176,6 +177,11 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
   // Keep a bounded, per-user undo history for task edits without duplicating the live task store.
   useEffect(() => {
     if (!cloudReady || !Array.isArray(tasks)) return;
+    if (skipHistoryRef.current) {
+      skipHistoryRef.current = false;
+      previousTasks.current = tasks;
+      return;
+    }
     if (previousTasks.current === null) { previousTasks.current = tasks; return; }
     if (previousTasks.current === tasks) return;
     const before = previousTasks.current;
@@ -188,6 +194,7 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
   }, [tasks, cloudReady]);
 
   useEffect(() => {
+    if (!active) return undefined;
     const handler = (event) => {
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -197,7 +204,7 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [active]);
 
   const pendingTasks = useMemo(() => (Array.isArray(tasks) ? tasks : []).filter((task) => task && !task.completed), [tasks]);
   const selectedFocusTask = pendingTasks.find((task) => task.id === focusTaskId) || pendingTasks[0] || null;
@@ -421,6 +428,7 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
     const previous = (toolkit.history || [])[0];
     if (!previous || !Array.isArray(previous.tasks)) return notify("No task change to undo yet.");
     if (!window.confirm("Undo the latest task-list change? This restores the previous task list.")) return;
+    skipHistoryRef.current = true;
     setTasks(previous.tasks);
     setToolkit((current) => ({ ...current, history: (current.history || []).slice(1) }));
     notify("Previous task list restored.");
@@ -585,7 +593,7 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
     {phase === "reliability" && <div className="sfplus-phase-body">
       <div className="sfplus-grid">
         <article className="sfplus-card">
-          <div className="sfplus-card-title"><span className="sfplus-icon"><CalendarDays size={18} /></span><div><h3>Calendar import & export</h3><p>Move task and class dates between StudyFlow and external calendars with standard ICS files.</p></div></div>
+          <div className="sfplus-card-title"><span className="sfplus-icon"><CalendarDays size={18} /></span><div><h3>Calendar import & export</h3><p>Export class events, tasks and exams; import dated events as tasks or exams using a standard ICS file.</p></div></div>
           <button type="button" className="primary-button" onClick={exportCalendar}><Download size={15} />Export calendar (.ics)</button>
           <label className="sfplus-label sfplus-file-label">Import an .ics file<input type="file" accept=".ics,text/calendar" onChange={importCalendar} /></label>
           <div className="sfplus-warning"><CircleHelp size={15} /><span>This is file-based sync, not automatic two-way account sync. Automatic Google/Outlook sync needs OAuth credentials and a server-side token store; none are configured in this repository.</span></div>

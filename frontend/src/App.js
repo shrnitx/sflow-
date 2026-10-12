@@ -861,7 +861,11 @@ function App() {
           />
         </section>
 
-        {activeSection === "toolkit" && (
+        <section
+          className="studyflow-plus-shell"
+          style={activeSection === "toolkit" ? undefined : { display: "none" }}
+          aria-hidden={activeSection !== "toolkit"}
+        >
           <StudyFlowPlus
             user={user}
             tasks={tasks}
@@ -871,8 +875,9 @@ function App() {
             sessions={focusSessions}
             setSessions={setFocusSessions}
             onToast={setToast}
+            active={activeSection === "toolkit"}
           />
-        )}
+        </section>
 
         {activeSection !== "home" && dataSyncError && (
           <div className="cloud-sync-warning" role="alert">
