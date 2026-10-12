@@ -8,6 +8,26 @@ const TABLES = {
 
 // Serialize writes per user/table so a slower older save cannot overtake a newer one.
 const pendingWrites = new Map();
+const confirmedSnapshots = new Map();
+
+function snapshotKey(collection, userId) {
+  return `${userId}:${tableFor(collection)}`;
+}
+
+function stableValue(value) {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === "object") {
+    return Object.keys(value).sort().reduce((result, key) => {
+      result[key] = stableValue(value[key]);
+      return result;
+    }, {});
+  }
+  return value;
+}
+
+function sameRecord(left, right) {
+  return JSON.stringify(stableValue(left)) === JSON.stringify(stableValue(right));
+}
 
 function tableFor(collection) {
   const table = TABLES[collection];
@@ -51,7 +71,7 @@ export async function loadUserCollection(collection, userId) {
 
   if (error) throw error;
 
-  return (data || [])
+  const records = (data || [])
     .map((row) => {
       if (!row?.data || typeof row.data !== "object" || Array.isArray(row.data)) {
         return null;
@@ -61,6 +81,8 @@ export async function loadUserCollection(collection, userId) {
       return { ...row.data, id: row.record_id };
     })
     .filter((record) => validRecord(collection, record));
+  confirmedSnapshots.set(snapshotKey(collection, userId), records);
+  return records;
 }
 
 async function syncCollectionNow(collection, userId, records) {
@@ -68,45 +90,64 @@ async function syncCollectionNow(collection, userId, records) {
   const normalized = Array.isArray(records)
     ? records.filter((record) => validRecord(collection, record))
     : [];
-  const desiredIds = new Set(normalized.map((record) => record.id));
+  const queueKey = snapshotKey(collection, userId);
+  const knownSnapshot = confirmedSnapshots.get(queueKey);
 
+  // Read the latest cloud rows, but only write records changed since the last
+  // cloud snapshot this browser actually loaded. Stale browsers must not rewrite
+  // every row or delete records created/edited on another browser.
   const { data: existingRows, error: readError } = await supabase
     .from(table)
-    .select("record_id")
+    .select("record_id, data")
     .eq("user_id", userId);
-
   if (readError) throw readError;
 
-  // Upsert desired records first. If this fails, do not delete existing cloud data.
-  if (normalized.length > 0) {
-    const rows = normalized.map((record) => ({
+  const remote = new Map((existingRows || []).map((row) => [
+    row.record_id,
+    row?.data && typeof row.data === "object" && !Array.isArray(row.data)
+      ? { ...row.data, id: row.record_id }
+      : null,
+  ]));
+  const baseRecords = knownSnapshot || [...remote.values()].filter(Boolean);
+  const base = new Map(baseRecords.map((record) => [record.id, record]));
+  const desired = new Map(normalized.map((record) => [record.id, record]));
+
+  const changed = normalized.filter((record) =>
+    !base.has(record.id) || !sameRecord(record, base.get(record.id))
+  );
+  if (changed.length > 0) {
+    const rows = changed.map((record) => ({
       user_id: userId,
       record_id: record.id,
       data: record,
       updated_at: new Date().toISOString(),
     }));
-
     const { error: upsertError } = await supabase
       .from(table)
       .upsert(rows, { onConflict: "user_id,record_id" });
-
     if (upsertError) throw upsertError;
   }
 
-  const obsoleteIds = (existingRows || [])
-    .map((row) => row.record_id)
-    .filter((recordId) => !desiredIds.has(recordId));
-
-  // Delete only records owned by this user, and only after upserts succeeded.
+  const obsoleteIds = [];
+  for (const [recordId, baselineRecord] of base.entries()) {
+    if (desired.has(recordId)) continue;
+    const remoteRecord = remote.get(recordId);
+    // Only delete if the cloud record is still the version this browser saw.
+    // A concurrent remote edit wins rather than being erased by a stale client.
+    if (remoteRecord && sameRecord(remoteRecord, baselineRecord)) obsoleteIds.push(recordId);
+  }
   if (obsoleteIds.length > 0) {
     const { error: deleteError } = await supabase
       .from(table)
       .delete()
       .eq("user_id", userId)
       .in("record_id", obsoleteIds);
-
     if (deleteError) throw deleteError;
   }
+
+  // Remote-only records aren't considered deletions by this browser until a
+  // reload/realtime refresh has made them part of its confirmed snapshot.
+  confirmedSnapshots.set(queueKey, normalized);
 }
 
 export function syncUserCollection(collection, userId, records) {
