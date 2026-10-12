@@ -205,15 +205,18 @@ export default function StudyFlowExpansionHub({ user, tasks = [] }) {
     setQuiz({ id: makeId(), topic: topic.trim() || "General", cards: items, answers: {}, index: 0, endsAt: Date.now() + clamp(Number(testMinutes) || 10, 1, 180) * 60000, finished: false, saved: false });
     setActive("exam");
   };
+  const quizId = quiz?.id;
+  const quizFinished = Boolean(quiz?.finished);
+  const quizEndsAt = quiz?.endsAt;
   useEffect(() => {
-    if (!quiz || quiz.finished) return undefined;
+    if (!quizId || quizFinished || !quizEndsAt) return undefined;
     const timer = window.setInterval(() => {
-      if (Date.now() >= quiz.endsAt) {
+      if (Date.now() >= quizEndsAt) {
         setQuiz((current) => current && !current.finished ? { ...current, finished: true } : current);
       }
     }, 500);
     return () => window.clearInterval(timer);
-  }, [quiz?.id, quiz?.finished, quiz?.endsAt]);
+  }, [quizId, quizFinished, quizEndsAt]);
   const saveQuiz = () => {
     if (!quiz || quiz.saved) return;
     const score = Object.values(quiz.answers).filter(Boolean).length;
