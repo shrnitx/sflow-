@@ -51,7 +51,7 @@ function cardsFromNotes(raw, topic) {
     let front, back = line;
     if (explicit) { front = explicit[1].trim(); back = explicit[2].trim(); }
     else if (definition) { front = definition[1].trim(); back = definition[2].trim().replace(/[.!?]+$/, ""); }
-    else { const words = line.split(/\s+/); front = words.slice(0, Math.min(7, Math.max(3, Math.ceil(words.length / 2))).join(" "); if (front.length < line.length) front += "…"; else front = "Recall the key idea in note " + (i + 1); }
+    else { const words = line.split(/\s+/); front = words.slice(0, Math.min(7, Math.max(3, Math.ceil(words.length / 2)))).join(" "); if (front.length < line.length) front += "…"; else front = "Recall the key idea in note " + (i + 1); }
     return { id: makeId(), front, back, topic: topic || "General" };
   });
 }
@@ -190,9 +190,14 @@ export default function StudyFlowExpansionHub({ user, tasks = [] }) {
     setActive("exam");
   };
   useEffect(() => {
-    if (!quiz || quiz.finished || quiz.endsAt > Date.now()) return;
-    setQuiz((current) => current && !current.finished ? { ...current, finished: true } : current);
-  }, [quiz, secondsLeft]);
+    if (!quiz || quiz.finished) return undefined;
+    const timer = window.setInterval(() => {
+      if (Date.now() >= quiz.endsAt) {
+        setQuiz((current) => current && !current.finished ? { ...current, finished: true } : current);
+      }
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [quiz?.id, quiz?.finished, quiz?.endsAt]);
   const saveQuiz = () => {
     if (!quiz || quiz.saved) return;
     const score = Object.values(quiz.answers).filter(Boolean).length;
