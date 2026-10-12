@@ -21,6 +21,7 @@ const blankData = () => ({
 });
 const localKey = (userId) => "studyflow.plus.v1." + encodeURIComponent(userId);
 const fileDbName = "studyflow-plus-files";
+const materialBucket = "studyflow-materials";
 const fileKey = (userId, id) => userId + ":" + id;
 
 function safeRead(key) {
@@ -310,34 +311,95 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
       tags: materialTags.split(",").map((tag) => tag.trim()).filter(Boolean).slice(0, 10),
       filename: materialFile ? materialFile.name : "", mimeType: materialFile ? materialFile.type : "",
       size: materialFile ? materialFile.size : 0, addedAt: new Date().toISOString(),
-      fileLocalOnly: Boolean(materialFile)
+      fileLocalOnly: false, storagePath: ""
     };
     if (materialFile) {
-      if (materialFile.size > 25 * 1024 * 1024) return notify("Choose a file under 25 MB for browser storage.");
-      try { await storeLocalFile(fileKey(userId, material.id), materialFile); }
-      catch (error) { return notify(error.message || "Could not save file locally."); }
+      if (materialFile.size > 25 * 1024 * 1024) return notify("Choose a file under 25 MB.");
+      const safeFilename = materialFile.name.replace(/[^\w.-]+/g, "_").slice(-140) || "material";
+      const storagePath = userId + "/" + material.id + "/" + safeFilename;
+      try {
+        const { error } = await supabase.storage.from(materialBucket).upload(storagePath, materialFile, {
+          cacheControl: "3600",
+          contentType: materialFile.type || "application/octet-stream",
+          upsert: false
+        });
+        if (error) throw error;
+        material.storagePath = storagePath;
+      } catch (cloudError) {
+        console.warn("StudyFlow material cloud upload failed; trying device storage:", cloudError);
+        try {
+          await storeLocalFile(fileKey(userId, material.id), materialFile);
+          material.fileLocalOnly = true;
+        } catch (localError) {
+          console.error("StudyFlow material local fallback failed:", localError);
+          return notify("The file could not be saved to your account or this device. Check your connection and try again.");
+        }
+      }
     }
     setToolkit((current) => ({ ...current, materials: [material, ...(current.materials || [])] }));
     setMaterialTitle(""); setMaterialSubject(""); setMaterialTags(""); setMaterialFile(null);
     const picker = document.getElementById("sfplus-material-file");
     if (picker) picker.value = "";
-    notify(materialFile ? "Material saved on this device. Its details sync to your account." : "Material link saved.");
+    if (!materialFile) notify("Material details saved to your account.");
+    else if (material.storagePath) notify("File uploaded to your private account storage. It will be available on your other devices.");
+    else notify("Cloud upload failed. File saved on this device only; its details still sync.");
   };
 
   const downloadMaterial = async (material) => {
     if (!material.filename) return notify("No file is attached to this material.");
+    const saveBlob = (blob) => {
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = material.filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    };
+    if (material.storagePath) {
+      try {
+        const { data, error } = await supabase.storage.from(materialBucket).download(material.storagePath);
+        if (error) throw error;
+        if (!data) throw new Error("The stored file was not returned.");
+        saveBlob(data);
+        return;
+      } catch (error) {
+        console.warn("StudyFlow cloud material download failed:", error);
+        try {
+          const local = await getLocalFile(fileKey(userId, material.id));
+          if (local) {
+            saveBlob(local);
+            return;
+          }
+        } catch (localError) {
+          console.warn("StudyFlow local file fallback failed:", localError);
+        }
+        return notify("Could not download this file. Check your connection and sign-in, then retry.");
+      }
+    }
     try {
       const blob = await getLocalFile(fileKey(userId, material.id));
-      if (!blob) return notify("This file is available only on the device where it was added. Re-upload it here to restore it.");
-      const url = URL.createObjectURL(blob);
-      const anchor = document.createElement("a"); anchor.href = url; anchor.download = material.filename;
-      document.body.appendChild(anchor); anchor.click(); anchor.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      if (!blob) return notify("This file is stored only on the device where it was added. Re-upload it here to restore it.");
+      saveBlob(blob);
     } catch (error) { notify(error.message || "Could not download this material."); }
   };
 
   const deleteMaterial = async (material) => {
-    if (!window.confirm("Remove " + material.title + "? This also deletes its local file on this device.")) return;
-    if (material.filename) { try { await removeLocalFile(fileKey(userId, material.id)); } catch (error) { console.warn(error); } }
+    if (!window.confirm("Remove " + material.title + "? The stored file will also be deleted.")) return;
+    if (material.storagePath) {
+      try {
+        const { error } = await supabase.storage.from(materialBucket).remove([material.storagePath]);
+        if (error) throw error;
+      } catch (error) {
+        console.error("StudyFlow cloud material delete failed:", error);
+        return notify("The file could not be deleted from cloud storage. Try again before removing its record.");
+      }
+    }
+    if (material.filename && !material.storagePath) {
+      try { await removeLocalFile(fileKey(userId, material.id)); }
+      catch (error) { console.warn("StudyFlow local file delete failed:", error); }
+    }
     setToolkit((current) => ({ ...current, materials: (current.materials || []).filter((item) => item.id !== material.id) }));
     notify("Material removed.");
   };
@@ -541,7 +603,7 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
     {phase === "learn" && <div className="sfplus-phase-body">
       <div className="sfplus-grid">
         <article className="sfplus-card sfplus-wide">
-          <div className="sfplus-card-title"><span className="sfplus-icon"><Library size={18} /></span><div><h3>Course materials vault</h3><p>Store course-resource metadata in your account and attach files locally on this device.</p></div></div>
+          <div className="sfplus-card-title"><span className="sfplus-icon"><Library size={18} /></span><div><h3>Course materials vault</h3><p>Store course-resource metadata in your account and upload files to your private account storage, with a device-local fallback.</p></div></div>
           <form className="sfplus-form-grid" onSubmit={addMaterial}>
             <label className="sfplus-label">Material title<input value={materialTitle} maxLength={120} onChange={(e) => setMaterialTitle(e.target.value)} placeholder="e.g. Genetics lecture notes" /></label>
             <label className="sfplus-label">Subject<input value={materialSubject} maxLength={80} onChange={(e) => setMaterialSubject(e.target.value)} placeholder="e.g. Biology" /></label>
@@ -550,7 +612,7 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
             <button className="primary-button" type="submit"><Plus size={15} />Save material</button>
           </form>
           <div className="sfplus-search"><Search size={15} /><input value={materialSearch} onChange={(e) => setMaterialSearch(e.target.value)} placeholder="Search materials, subjects or tags…" aria-label="Search materials" /></div>
-          <div className="sfplus-material-list">{visibleMaterials.length ? visibleMaterials.map((item) => <div className="sfplus-material" key={item.id}><span className="sfplus-material-icon"><FileText size={17} /></span><div><strong>{item.title}</strong><small>{item.subject || "Uncategorized"}{item.tags && item.tags.length ? " · " + item.tags.join(", ") : ""}</small><small>{item.filename ? item.filename + " · " + Math.max(1, Math.round(item.size / 1024)) + " KB" + " · device-local file" : "Link / note only"}</small></div>{item.filename && <button className="sfplus-icon-button" type="button" title="Download file" onClick={() => downloadMaterial(item)}><Download size={15} /></button>}<button className="sfplus-icon-button" type="button" title="Remove material" onClick={() => deleteMaterial(item)}><Trash2 size={15} /></button></div>) : <p className="sfplus-hint">Your materials will appear here. Uploaded file bytes remain in this browser; only their details sync to your account.</p>}</div>
+          <div className="sfplus-material-list">{visibleMaterials.length ? visibleMaterials.map((item) => <div className="sfplus-material" key={item.id}><span className="sfplus-material-icon"><FileText size={17} /></span><div><strong>{item.title}</strong><small>{item.subject || "Uncategorized"}{item.tags && item.tags.length ? " · " + item.tags.join(", ") : ""}</small><small>{item.filename ? item.filename + " · " + Math.max(1, Math.round(item.size / 1024)) + " KB" + (item.storagePath ? " · private cloud file" : " · device-local file") : "Link / note only"}</small></div>{item.filename && <button className="sfplus-icon-button" type="button" title="Download file" onClick={() => downloadMaterial(item)}><Download size={15} /></button>}<button className="sfplus-icon-button" type="button" title="Remove material" onClick={() => deleteMaterial(item)}><Trash2 size={15} /></button></div>) : <p className="sfplus-hint">Your materials will appear here. Uploaded file bytes are stored privately in your account; only local-fallback files remain on this device.</p>}</div>
         </article>
 
         <article className="sfplus-card">
