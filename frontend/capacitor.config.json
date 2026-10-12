@@ -1,0 +1,8 @@
+{
+  "appId": "com.sflow.studyflow",
+  "appName": "StudyFlow",
+  "webDir": "build",
+  "server": {
+    "androidScheme": "https"
+  }
+}
