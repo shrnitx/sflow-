@@ -99,7 +99,7 @@ function StudyFlowHeroAnimation({ tasks = [] }) {
                       <svg className="sf-check-mark" viewBox="0 0 20 20" fill="none">
                         <motion.path
                           d="M4.5 10.2 8.2 13.8 15.7 6.3"
-                          stroke="#FFFFFF"
+                          stroke="var(--card-strong)"
                           strokeWidth="2.2"
                           strokeLinecap="round"
                           strokeLinejoin="round"
