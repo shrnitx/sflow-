@@ -94,19 +94,6 @@ function StudyFlowHeroAnimation({ tasks = [] }) {
                 <div className="sf-agenda-task" key={task.id || task.title + index}>
                   <motion.span
                     className={"sf-task-check" + (isCompleted ? " sf-task-check-completed" : "")}
-                    initial={{
-                      backgroundColor: reduceMotion && isCompleted ? "#10B981" : "#FFFFFF",
-                      borderColor: reduceMotion && isCompleted ? "#10B981" : "#D7DCE7",
-                    }}
-                    animate={{
-                      backgroundColor: isCompleted ? "#10B981" : "#FFFFFF",
-                      borderColor: isCompleted ? "#10B981" : "#D7DCE7",
-                    }}
-                    transition={{
-                      duration: reduceMotion ? 0 : 0.22,
-                      delay: isCompleted ? checkDelay : 0,
-                      ease: "easeOut",
-                    }}
                   >
                     {isCompleted && (
                       <svg className="sf-check-mark" viewBox="0 0 20 20" fill="none">
