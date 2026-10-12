@@ -142,24 +142,43 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
         const { data, error } = await supabase.from("studyflow_user_data").select("data").eq("user_id", userId).eq("record_id", "toolkit").maybeSingle();
         if (error) throw error;
         if (!active) return;
-        setCloudReadReady(true);
-        if (data && data.data && typeof data.data === "object" && !Array.isArray(data.data)) {
-          const local = safeRead(localKey(userId)) || blankData();
-          const remote = data.data;
-          const defaults = blankData();
-          const normalizedRemote = {
-            ...defaults, ...remote,
-            grades: { ...defaults.grades, ...(remote.grades || {}) },
-            reminderPrefs: { ...defaults.reminderPrefs, ...(remote.reminderPrefs || {}) },
-            cards: Array.isArray(remote.cards) ? remote.cards : [],
-            materials: Array.isArray(remote.materials) ? remote.materials : [],
-            history: Array.isArray(remote.history) ? remote.history : [],
+        const defaults = blankData();
+        const normalize = (value) => {
+          const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+          return {
+            ...defaults,
+            ...source,
+            grades: { ...defaults.grades, ...(source.grades || {}) },
+            reminderPrefs: { ...defaults.reminderPrefs, ...(source.reminderPrefs || {}) },
+            cards: Array.isArray(source.cards) ? source.cards : [],
+            materials: Array.isArray(source.materials) ? source.materials : [],
+            history: Array.isArray(source.history) ? source.history : [],
           };
-          syncedToolkitRef.current = normalizedRemote;
-          setToolkit({ ...defaults, ...local, ...normalizedRemote, grades: { ...defaults.grades, ...(local.grades || {}), ...(remote.grades || {}) }, reminderPrefs: { ...defaults.reminderPrefs, ...(local.reminderPrefs || {}), ...(remote.reminderPrefs || {}) }, cards: Array.isArray(remote.cards) ? remote.cards : local.cards, materials: Array.isArray(remote.materials) ? remote.materials : local.materials, history: Array.isArray(remote.history) ? remote.history : local.history });
-        } else {
-          syncedToolkitRef.current = blankData();
+        };
+        const local = normalize(safeRead(localKey(userId)) || defaults);
+        const baselineValue = safeRead(localKey(userId) + ".cloud-baseline");
+        const baseline = baselineValue ? normalize(baselineValue) : null;
+        const hasRemoteRow = Boolean(data && data.data && typeof data.data === "object" && !Array.isArray(data.data));
+        const remote = normalize(hasRemoteRow ? data.data : defaults);
+        syncedToolkitRef.current = remote;
+        if (!baseline) {
+          try { localStorage.setItem(localKey(userId) + ".cloud-baseline", JSON.stringify(remote)); }
+          catch (storageError) { console.warn("StudyFlow Plus baseline cache failed:", storageError); }
         }
+        const initial = baseline
+          ? mergeCloudState(baseline, local, remote)
+          : hasRemoteRow
+            ? {
+                ...local, ...remote,
+                grades: { ...local.grades, ...(data.data.grades || {}) },
+                reminderPrefs: { ...local.reminderPrefs, ...(data.data.reminderPrefs || {}) },
+                cards: Array.isArray(data.data.cards) ? data.data.cards : local.cards,
+                materials: Array.isArray(data.data.materials) ? data.data.materials : local.materials,
+                history: Array.isArray(data.data.history) ? data.data.history : local.history,
+              }
+            : local;
+        setCloudReadReady(true);
+        setToolkit(initial);
         setCloudState("synced");
       } catch (error) {
         console.warn("StudyFlow Plus cloud load failed:", error);
@@ -189,6 +208,8 @@ export default function StudyFlowPlus({ user, tasks, setTasks, timetable, setTim
         }, { onConflict: "user_id,record_id" });
         if (error) throw error;
         syncedToolkitRef.current = toolkit;
+        try { localStorage.setItem(localKey(userId) + ".cloud-baseline", JSON.stringify(toolkit)); }
+        catch (storageError) { console.warn("StudyFlow Plus baseline cache failed:", storageError); }
         setCloudState("synced");
       } catch (error) {
         console.warn("StudyFlow Plus cloud save failed:", error);

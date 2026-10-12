@@ -174,20 +174,29 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
         if (error) throw error;
         if (!active) return;
         const remote = Object.fromEntries((data || []).map((row) => [row.record_id, row.data || {}]));
-        // Cloud rows are the canonical shared state. Browser cache is fallback
-        // only after a failed read; do not resurrect stale cached records after a
-        // successful read that confirms the account has no such row.
         importLegacyExams(Array.isArray(remote.exams?.items) ? remote.exams.items : []);
         const cloudSyllabus = Array.isArray(remote.syllabus?.items) ? remote.syllabus.items : [];
         const cloudReminders = remote.reminders?.prefs && typeof remote.reminders.prefs === "object"
           ? remote.reminders.prefs
           : { notificationsEnabled: false, dailyReminderTime: "09:00" };
-        // Preserve a browser-only recovery copy if the cloud has never had a row
-        // for this feature. Once a cloud row exists, including an empty one, the
-        // remote value is authoritative and deliberate deletions stay deleted.
-        const nextSyllabus = remote.syllabus ? cloudSyllabus : fallback.syllabus;
-        const nextReminders = remote.reminders ? cloudReminders : fallback.reminders;
+        const baselineValue = safeRead(dataKey + ":cloud-baseline", null);
+        const baseline = baselineValue && typeof baselineValue === "object" ? {
+          syllabus: Array.isArray(baselineValue.syllabus) ? baselineValue.syllabus : [],
+          reminderPrefs: baselineValue.reminderPrefs && typeof baselineValue.reminderPrefs === "object"
+            ? baselineValue.reminderPrefs
+            : { notificationsEnabled: false, dailyReminderTime: "09:00" },
+        } : null;
+        const nextSyllabus = baseline
+          ? mergeCloudState(baseline.syllabus, fallback.syllabus, cloudSyllabus)
+          : remote.syllabus ? cloudSyllabus : fallback.syllabus;
+        const nextReminders = baseline
+          ? mergeCloudState(baseline.reminderPrefs, fallback.reminders, cloudReminders)
+          : remote.reminders ? cloudReminders : fallback.reminders;
         syncedWorkspaceRef.current = { syllabus: cloudSyllabus, reminderPrefs: cloudReminders };
+        if (!baseline) {
+          try { window.localStorage.setItem(dataKey + ":cloud-baseline", JSON.stringify(syncedWorkspaceRef.current)); }
+          catch (storageError) { console.warn("StudyFlow workspace baseline cache failed:", storageError); }
+        }
         setSyllabus(nextSyllabus);
         setReminderPrefs(nextReminders);
         setCloudReadReady(true);
@@ -292,6 +301,8 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
         const { error } = await supabase.from("studyflow_user_data").upsert(rows, { onConflict: "user_id,record_id" });
         if (error) throw error;
         syncedWorkspaceRef.current = { syllabus, reminderPrefs };
+        try { window.localStorage.setItem(dataKey + ":cloud-baseline", JSON.stringify(syncedWorkspaceRef.current)); }
+        catch (storageError) { console.warn("StudyFlow workspace baseline cache failed:", storageError); }
         setCloudStatus("synced");
       } catch (error) {
         console.error("StudyFlow workspace cloud save failed:", error);
