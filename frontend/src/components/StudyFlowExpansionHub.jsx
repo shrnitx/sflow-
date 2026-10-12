@@ -63,6 +63,7 @@ export default function StudyFlowExpansionHub({ user, tasks = [] }) {
   const [active, setActive] = useState("planner");
   const [data, setData] = useState(() => { const local = typeof window === "undefined" ? null : parseJSON(localStorage.getItem(keyFor(user?.id || "guest")) || "null"); return { ...fresh(), ...(local && typeof local === "object" ? local : {}) }; });
   const [hydrated, setHydrated] = useState(false);
+  const [cloudReadReady, setCloudReadReady] = useState(false);
   const [cloud, setCloud] = useState("loading");
   const [toast, setToast] = useState("");
   const [topics, setTopics] = useState("");
@@ -89,6 +90,7 @@ export default function StudyFlowExpansionHub({ user, tasks = [] }) {
   useEffect(() => {
     let alive = true;
     setHydrated(false);
+    setCloudReadReady(false);
     setCloud("loading");
     const local = parseJSON(localStorage.getItem(keyFor(user.id)) || "null");
     const fallback = { ...fresh(), ...(local && typeof local === "object" ? local : {}) };
@@ -106,10 +108,11 @@ export default function StudyFlowExpansionHub({ user, tasks = [] }) {
           }
           setData(merged);
         }
+        setCloudReadReady(true);
         setCloud("synced");
       } catch (error) {
         console.warn("Boost Lab cloud load failed:", error);
-        if (alive) setCloud("local");
+        if (alive) { setCloudReadReady(false); setCloud("local"); }
       } finally { if (alive) setHydrated(true); }
     })();
     return () => { alive = false; };
@@ -119,6 +122,9 @@ export default function StudyFlowExpansionHub({ user, tasks = [] }) {
     if (!user?.id || !hydrated) return undefined;
     try { localStorage.setItem(keyFor(user.id), JSON.stringify(data)); }
     catch (error) { console.warn("Boost Lab local save failed:", error); setToast("Browser storage is full. Download a backup before clearing data."); setCloud("local"); }
+    // Never overwrite a remote row automatically after a failed cloud read.
+    // Keep local edits safe until a read succeeds or the user explicitly retries a write.
+    if (!cloudReadReady) { setCloud("local"); return undefined; }
     if (typeof navigator !== "undefined" && !navigator.onLine) { setCloud("local"); return undefined; }
     setCloud((current) => current === "local" ? "local" : "syncing");
     const timeout = window.setTimeout(async () => {
@@ -129,7 +135,7 @@ export default function StudyFlowExpansionHub({ user, tasks = [] }) {
       } catch (error) { console.warn("Boost Lab cloud save failed:", error); setCloud("local"); }
     }, 700);
     return () => window.clearTimeout(timeout);
-  }, [data, hydrated, user?.id]);
+  }, [data, hydrated, cloudReadReady, user?.id]);
 
   useEffect(() => {
     const tick = () => setSecondsLeft(data.focus?.endsAt ? Math.max(0, Math.ceil((data.focus.endsAt - Date.now()) / 1000)) : 0);
@@ -292,7 +298,7 @@ export default function StudyFlowExpansionHub({ user, tasks = [] }) {
 
     {active === "rooms" && <div className="sfh-grid"><section className="sfh-panel"><span className="sfh-kicker">08 · ACCOUNTABILITY</span><h3>Shareable study room</h3><p>Create an invite with a shared goal and session length. Invite links carry the room brief, but live participant presence and synchronized timers need a realtime room service.</p><div className="sfh-form-stack"><label>Room name<input value={roomName} onChange={(e) => setRoomName(e.target.value)} maxLength={80} /></label><label>Shared goal<input value={roomGoal} onChange={(e) => setRoomGoal(e.target.value)} maxLength={180} /></label><label>Focus minutes<input type="number" min="1" max="240" value={roomMinutes} onChange={(e) => setRoomMinutes(e.target.value)} /></label><button className="sfh-primary" type="button" onClick={() => { update({ room: { name: roomName.trim() || "Study room", goal: roomGoal.trim() || "Study together", minutes: clamp(Number(roomMinutes) || 25, 1, 240), code: Math.random().toString(36).slice(2, 8).toUpperCase(), createdAt: new Date().toISOString() } }); notify("Room invite created."); }}><Users size={16} /> Create room invite</button></div></section><section className="sfh-panel"><span className="sfh-kicker">ROOM INVITE</span><h3>{data.room?.name || "No active room"}</h3>{!data.room ? <p className="sfh-empty">Room details and invite link appear here.</p> : <><p>{data.room.goal}</p><div className="sfh-room-code">{data.room.code}</div><p className="sfh-muted">{data.room.minutes} minute session</p><label>Invite link<input readOnly value={roomLink()} onFocus={(e) => e.target.select()} /></label><div className="sfh-actions"><button className="sfh-primary" type="button" onClick={() => copyText(roomLink(), "Invite link copied.")}><Copy size={16} /> Copy invite</button><button className="sfh-secondary" type="button" onClick={() => startFocus(data.room.minutes, data.room.goal)}><Clock3 size={16} /> Start my timer</button><button className="sfh-secondary" type="button" onClick={() => update({ room: null })}>Close room</button></div></>}</section></div>}
 
-    {active === "backup" && <div className="sfh-grid"><section className="sfh-panel"><span className="sfh-kicker">09 · OFFLINE & RECOVERY</span><h3>Keep your data recoverable</h3><p>Changes save in this browser immediately and sync to your account when online. Download a backup before clearing browser data.</p><div className="sfh-recovery-state"><span className={typeof navigator !== "undefined" && navigator.onLine ? "sfh-online-dot" : "sfh-offline-dot"} /><strong>{typeof navigator !== "undefined" && navigator.onLine ? "Internet available" : "Offline · browser copy retained"}</strong><span>{cloud === "synced" ? "Cloud save confirmed" : cloud === "syncing" ? "Cloud save pending" : "Cloud save unavailable"}</span></div><div className="sfh-actions"><button className="sfh-primary" type="button" onClick={exportBackup}><ArrowDownToLine size={16} /> Download backup</button><label className="sfh-upload-button"><ArrowUpFromLine size={16} /> {restoring ? "Restoring…" : "Restore backup"}<input type="file" accept="application/json,.json" disabled={restoring} onChange={importBackup} /></label><button className="sfh-secondary" type="button" onClick={async () => { setCloud("syncing"); try { const r = await supabase.from("studyflow_user_data").upsert({ user_id: user.id, record_id: RECORD_ID, data, updated_at: new Date().toISOString() }, { onConflict: "user_id,record_id" }); if (r.error) throw r.error; setCloud("synced"); notify("Cloud sync completed."); } catch (error) { console.warn(error); setCloud("local"); notify("Cloud sync failed; browser data was kept."); } }}><Wifi size={16} /> Retry cloud sync</button></div><p className="sfh-muted">Backup scope: Boost Lab only. Restore replaces this feature's data, not tasks or timetable.</p></section><section className="sfh-panel"><span className="sfh-kicker">BACKUP CONTENTS</span><h3>What is preserved?</h3>{[{ label: "Revision topics", count: plan.length }, { label: "Recall cards", count: cards.length }, { label: "Quiz attempts", count: history.length }, { label: "Attendance subjects", count: attendance.length }, { label: "Projects", count: projects.length }, { label: "Focus logs", count: focusLog.length }].map((r) => <div className="sfh-history-row" key={r.label}><span>{r.label}</span><strong>{r.count}</strong></div>)}</section></div>}
+    {active === "backup" && <div className="sfh-grid"><section className="sfh-panel"><span className="sfh-kicker">09 · OFFLINE & RECOVERY</span><h3>Keep your data recoverable</h3><p>Changes save in this browser immediately and sync to your account when online. Download a backup before clearing browser data.</p><div className="sfh-recovery-state"><span className={typeof navigator !== "undefined" && navigator.onLine ? "sfh-online-dot" : "sfh-offline-dot"} /><strong>{typeof navigator !== "undefined" && navigator.onLine ? "Internet available" : "Offline · browser copy retained"}</strong><span>{cloud === "synced" ? "Cloud save confirmed" : cloud === "syncing" ? "Cloud save pending" : "Cloud save unavailable"}</span></div><div className="sfh-actions"><button className="sfh-primary" type="button" onClick={exportBackup}><ArrowDownToLine size={16} /> Download backup</button><label className="sfh-upload-button"><ArrowUpFromLine size={16} /> {restoring ? "Restoring…" : "Restore backup"}<input type="file" accept="application/json,.json" disabled={restoring} onChange={importBackup} /></label><button className="sfh-secondary" type="button" onClick={async () => { setCloud("syncing"); try { const r = await supabase.from("studyflow_user_data").upsert({ user_id: user.id, record_id: RECORD_ID, data, updated_at: new Date().toISOString() }, { onConflict: "user_id,record_id" }); if (r.error) throw r.error; setCloudReadReady(true); setCloud("synced"); notify("Cloud sync completed."); } catch (error) { console.warn(error); setCloud("local"); notify("Cloud sync failed; browser data was kept."); } }}><Wifi size={16} /> Retry cloud sync</button></div><p className="sfh-muted">Backup scope: Boost Lab only. Restore replaces this feature's data, not tasks or timetable.</p></section><section className="sfh-panel"><span className="sfh-kicker">BACKUP CONTENTS</span><h3>What is preserved?</h3>{[{ label: "Revision topics", count: plan.length }, { label: "Recall cards", count: cards.length }, { label: "Quiz attempts", count: history.length }, { label: "Attendance subjects", count: attendance.length }, { label: "Projects", count: projects.length }, { label: "Focus logs", count: focusLog.length }].map((r) => <div className="sfh-history-row" key={r.label}><span>{r.label}</span><strong>{r.count}</strong></div>)}</section></div>}
 
     {active === "review" && <section className="sfh-panel"><span className="sfh-kicker">10 · REVIEW & ADJUST</span><h3>Your weekly academic review</h3><p>Snapshot based on the tasks passed from the main workspace and records saved in Boost Lab.</p><div className="sfh-review-stats"><div><span>Focus minutes (7 days)</span><strong>{focusMinutesWeek}</strong></div><div><span>Sessions logged (7 days)</span><strong>{focusThisWeek.length}</strong></div><div><span>Average quiz accuracy</span><strong>{averageAccuracy === null ? "—" : averageAccuracy + "%"}</strong></div><div><span>Topics revised</span><strong>{plan.filter((p) => p.done).length}/{plan.length}</strong></div><div><span>Open projects</span><strong>{projects.filter((p) => p.status !== "Completed").length}</strong></div><div><span>Main tasks due in 7 days</span><strong>{dueSoon}</strong></div></div><div className="sfh-review-advice"><h4>Suggested next actions</h4><ul>{weak.length && weak[0].accuracy < 80 ? <li>Review <strong>{weak[0].topic}</strong>, currently at {weak[0].accuracy}% accuracy.</li> : <li>Take a short self-test to establish a topic-level baseline.</li>}{plan.some((p) => !p.done && p.date <= today()) ? <li>Complete a due revision topic before adding more.</li> : <li>Keep the revision plan current and mark topics done after recall practice.</li>}{projects.some((p) => p.status !== "Completed") ? <li>Move one open assignment forward by completing its next milestone.</li> : <li>Add upcoming multi-step coursework to the project tracker.</li>}{dueSoon ? <li>Review the {dueSoon} task(s) due within seven days in the main workspace.</li> : <li>Reserve time for your next major deadline.</li>}</ul></div></section>}
 
