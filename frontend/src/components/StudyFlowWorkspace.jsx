@@ -21,6 +21,21 @@ function safeRead(key, fallback) {
   }
 }
 
+function stableValue(value) {
+  if (Array.isArray(value)) return value.map(stableValue);
+  if (value && typeof value === "object") {
+    return Object.keys(value).sort().reduce((result, key) => {
+      result[key] = stableValue(value[key]);
+      return result;
+    }, {});
+  }
+  return value;
+}
+
+function sameValue(a, b) {
+  return JSON.stringify(stableValue(a)) === JSON.stringify(stableValue(b));
+}
+
 function isExamTask(item) {
   const type = String(item?.type || item?.category || "").toLowerCase();
   if (type === "exam" || type === "examination") return true;
@@ -87,6 +102,7 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
   const [reminderPrefs, setReminderPrefs] = useState(() => safeRead(dataKey + ":reminders", { notificationsEnabled: false, dailyReminderTime: "09:00" }));
   const [messages, setMessages] = useState(() => safeRead(dataKey + ":assistant", []));
   const [dataReadyUser, setDataReadyUser] = useState(null);
+  const [cloudReadReady, setCloudReadReady] = useState(false);
   const [cloudStatus, setCloudStatus] = useState("syncing");
   const [examDraft, setExamDraft] = useState({ title: "", subject: "", date: "" });
   const [topicDraft, setTopicDraft] = useState({ title: "", subject: "" });
@@ -100,6 +116,8 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
   const [permission, setPermission] = useState(typeof window !== "undefined" && "Notification" in window ? window.Notification.permission : "unsupported");
   const guard = useRef(false);
   const lastTick = useRef(0);
+  const currentWorkspaceData = useRef({ syllabus, reminderPrefs, messages });
+  currentWorkspaceData.current = { syllabus, reminderPrefs, messages };
 
   const importLegacyExams = useCallback((records) => {
     if (!Array.isArray(records) || !records.length) return;
@@ -154,6 +172,7 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
   useEffect(() => {
     let active = true;
     setDataReadyUser(null);
+    setCloudReadReady(false);
     setCloudStatus("syncing");
     const load = async () => {
       const fallback = {
@@ -166,9 +185,15 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
         if (error) throw error;
         if (!active) return;
         const remote = Object.fromEntries((data || []).map((row) => [row.record_id, row.data || {}]));
-        importLegacyExams(Array.isArray(remote.exams?.items) ? remote.exams.items : fallback.exams);
-        setSyllabus(Array.isArray(remote.syllabus?.items) ? remote.syllabus.items : fallback.syllabus);
-        setReminderPrefs(remote.reminders?.prefs && typeof remote.reminders.prefs === "object" ? remote.reminders.prefs : fallback.reminders);
+        // Cloud rows are the canonical shared state. Browser cache is fallback
+        // only after a failed read; do not resurrect stale cached records after a
+        // successful read that confirms the account has no such row.
+        importLegacyExams(Array.isArray(remote.exams?.items) ? remote.exams.items : []);
+        const nextSyllabus = Array.isArray(remote.syllabus?.items) ? remote.syllabus.items : [];
+        const nextReminders = remote.reminders?.prefs && typeof remote.reminders.prefs === "object" ? remote.reminders.prefs : { notificationsEnabled: false, dailyReminderTime: "09:00" };
+        setSyllabus(nextSyllabus);
+        setReminderPrefs(nextReminders);
+        setCloudReadReady(true);
         setCloudStatus("synced");
       } catch (error) {
         console.error("StudyFlow workspace cloud read failed:", error);
@@ -176,6 +201,7 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
         importLegacyExams(fallback.exams);
         setSyllabus(fallback.syllabus);
         setReminderPrefs(fallback.reminders);
+        setCloudReadReady(false);
         setCloudStatus("error");
       } finally {
         if (active) setDataReadyUser(userId);
@@ -184,6 +210,55 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
     load();
     return () => { active = false; };
   }, [userId, dataKey, importLegacyExams]);
+
+  useEffect(() => {
+    if (dataReadyUser !== userId || !cloudReadReady) return undefined;
+    let disposed = false;
+    let refreshTimer = null;
+
+    const refreshWorkspace = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("studyflow_user_data")
+          .select("record_id,data")
+          .eq("user_id", userId)
+          .in("record_id", USER_DATA_KEYS);
+        if (error) throw error;
+        if (disposed) return;
+        const remote = Object.fromEntries((data || []).map((row) => [row.record_id, row.data || {}]));
+        const remoteSyllabus = Array.isArray(remote.syllabus?.items) ? remote.syllabus.items : [];
+        const remoteReminders = remote.reminders?.prefs && typeof remote.reminders.prefs === "object"
+          ? remote.reminders.prefs
+          : { notificationsEnabled: false, dailyReminderTime: "09:00" };
+
+        if (!sameValue(remoteSyllabus, currentWorkspaceData.current.syllabus)) setSyllabus(remoteSyllabus);
+        if (!sameValue(remoteReminders, currentWorkspaceData.current.reminderPrefs)) setReminderPrefs(remoteReminders);
+        importLegacyExams(Array.isArray(remote.exams?.items) ? remote.exams.items : []);
+      } catch (error) {
+        console.error("StudyFlow workspace realtime refresh failed:", error);
+      }
+    };
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(refreshWorkspace, 180);
+    };
+    const channel = supabase
+      .channel("studyflow-workspace-sync-" + userId)
+      .on("postgres_changes", { event: "*", schema: "public", table: "studyflow_user_data", filter: "user_id=eq." + userId }, (payload) => {
+        if (payload?.new?.record_id === "exams" || payload?.new?.record_id === "syllabus" || payload?.new?.record_id === "reminders" ||
+            payload?.old?.record_id === "exams" || payload?.old?.record_id === "syllabus" || payload?.old?.record_id === "reminders") {
+          scheduleRefresh();
+        }
+      })
+      .subscribe();
+
+    return () => {
+      disposed = true;
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      supabase.removeChannel(channel);
+    };
+  }, [userId, dataReadyUser, cloudReadReady, importLegacyExams]);
 
   useEffect(() => {
     if (dataReadyUser !== userId) return undefined;
@@ -195,6 +270,9 @@ export default function StudyFlowWorkspace({ user, tasks, setTasks, timetable, s
     } catch (error) {
       console.error("StudyFlow local workspace backup failed:", error);
     }
+    // A failed cloud read must never be followed by an automatic write of the
+    // browser fallback. Otherwise a temporary outage can overwrite good account data.
+    if (!cloudReadReady) return undefined;
     const timeout = window.setTimeout(async () => {
       try {
         const updatedAt = new Date().toISOString();
