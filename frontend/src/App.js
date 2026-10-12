@@ -52,6 +52,7 @@ import ExamPrepPlanner from "./components/ExamPrepPlanner";
 import Login from "./components/auth/login";
 import Signup from "./components/auth/signup";
 import { useAuth } from "./context/AuthContext";
+import { supabase } from "./lib/supabaseClient";
 import { DAYS } from "./utils/timetable";
 import { areRecordsEqual, mergeOfflineCollection } from "./utils/offlineMerge";
 import StudyFlowHeroAnimation from "./components/StudyFlowHeroAnimation";
@@ -269,26 +270,26 @@ function App() {
         // cloud collections are the first reliable reference point. Persist them
         // before attempting any local-cache reconciliation.
         const savedBaseline = loadUserCloudBaseline(user.id);
-        const offlineBaseline = savedBaseline || {
-          tasks: results[0],
-          timetable: results[1],
-          focusSessions: results[2],
-        };
-        if (!savedBaseline) {
-          saveUserCloudBaseline(user.id, offlineBaseline);
-        }
 
-        // Merge only collections that differ from the last confirmed cloud state.
-        // Untouched local rows then follow remote changes/deletions, while local
-        // edits made during a failed save are preserved for the next sync attempt.
-        if (!areRecordsEqual(cachedTasks, offlineBaseline.tasks)) {
-          nextTasks = mergeOfflineCollection(nextTasks, cachedTasks, offlineBaseline.tasks);
-        }
-        if (!areRecordsEqual(cachedTimetable, offlineBaseline.timetable)) {
-          nextTimetable = mergeOfflineCollection(nextTimetable, cachedTimetable, offlineBaseline.timetable);
-        }
-        if (!areRecordsEqual(cachedFocusSessions, offlineBaseline.focusSessions)) {
-          nextFocusSessions = mergeOfflineCollection(nextFocusSessions, cachedFocusSessions, offlineBaseline.focusSessions);
+        // If this browser has never completed a cloud sync before, the cloud
+        // read is authoritative. A cache from another browser/version is not
+        // evidence of an offline edit and must not overwrite newer account data.
+        if (savedBaseline) {
+          if (!areRecordsEqual(cachedTasks, savedBaseline.tasks)) {
+            nextTasks = mergeOfflineCollection(nextTasks, cachedTasks, savedBaseline.tasks);
+          }
+          if (!areRecordsEqual(cachedTimetable, savedBaseline.timetable)) {
+            nextTimetable = mergeOfflineCollection(nextTimetable, cachedTimetable, savedBaseline.timetable);
+          }
+          if (!areRecordsEqual(cachedFocusSessions, savedBaseline.focusSessions)) {
+            nextFocusSessions = mergeOfflineCollection(nextFocusSessions, cachedFocusSessions, savedBaseline.focusSessions);
+          }
+        } else {
+          saveUserCloudBaseline(user.id, {
+            tasks: results[0],
+            timetable: results[1],
+            focusSessions: results[2],
+          });
         }
 
         if (nextTasks.length === 0 && cachedTasks.length > 0) {
@@ -427,6 +428,65 @@ function App() {
 
     return () => clearTimeout(timer);
   }, [tasks, timetable, focusSessions, user?.id, dataLoadedFor, cloudReadyFor, dataSyncError]);
+
+  // Keep open browser sessions in sync with the account's shared cloud state.
+  // A realtime event triggers a fresh read; three-way merge preserves genuine
+  // unsynced local edits while letting untouched records follow remote edits/deletions.
+  useEffect(() => {
+    if (!user?.id || cloudReadyFor !== user.id) return undefined;
+    let disposed = false;
+    let refreshTimer = null;
+
+    const refreshFromCloud = async () => {
+      try {
+        const [remoteTasks, remoteTimetable, remoteSessions] = await Promise.all([
+          loadUserCollection("tasks", user.id),
+          loadUserCollection("timetable", user.id),
+          loadUserCollection("focusSessions", user.id),
+        ]);
+        if (disposed) return;
+        const latest = currentCollectionsRef.current;
+        const baseline = loadUserCloudBaseline(user.id);
+        const nextTasks = baseline ? mergeOfflineCollection(remoteTasks, latest.tasks, baseline.tasks) : remoteTasks;
+        const nextTimetable = baseline ? mergeOfflineCollection(remoteTimetable, latest.timetable, baseline.timetable) : remoteTimetable;
+        const nextSessions = baseline ? mergeOfflineCollection(remoteSessions, latest.focusSessions, baseline.focusSessions) : remoteSessions;
+
+        if (!areRecordsEqual(nextTasks, latest.tasks)) setTasks(nextTasks);
+        if (!areRecordsEqual(nextTimetable, latest.timetable)) setTimetable(nextTimetable);
+        if (!areRecordsEqual(nextSessions, latest.focusSessions)) setFocusSessions(nextSessions);
+        if (
+          areRecordsEqual(nextTasks, remoteTasks) &&
+          areRecordsEqual(nextTimetable, remoteTimetable) &&
+          areRecordsEqual(nextSessions, remoteSessions)
+        ) {
+          saveUserCloudBaseline(user.id, {
+            tasks: remoteTasks,
+            timetable: remoteTimetable,
+            focusSessions: remoteSessions,
+          });
+        }
+      } catch (error) {
+        console.error("StudyFlow realtime refresh failed:", error);
+      }
+    };
+
+    const scheduleRefresh = () => {
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      refreshTimer = window.setTimeout(refreshFromCloud, 180);
+    };
+    const channel = supabase
+      .channel("studyflow-account-sync-" + user.id)
+      .on("postgres_changes", { event: "*", schema: "public", table: "studyflow_tasks", filter: "user_id=eq." + user.id }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "studyflow_timetable", filter: "user_id=eq." + user.id }, scheduleRefresh)
+      .on("postgres_changes", { event: "*", schema: "public", table: "studyflow_focus_sessions", filter: "user_id=eq." + user.id }, scheduleRefresh)
+      .subscribe();
+
+    return () => {
+      disposed = true;
+      if (refreshTimer) window.clearTimeout(refreshTimer);
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, cloudReadyFor]);
 
   useEffect(() => {
     if (!toast) return;
