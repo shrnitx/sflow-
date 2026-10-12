@@ -293,7 +293,7 @@ async function main() {
 
     await page.getByRole("button", { name: "Exams & syllabus", exact: true }).click();
     await page.getByPlaceholder("e.g. Physics mid-sem").fill("Study Lab Biology Exam");
-    await page.getByLabel("Exam date").fill(futureDate(20));
+    await page.locator(".sfw-body").getByLabel("Exam date").fill(futureDate(20));
     await page.getByRole("button", { name: "Save exam", exact: true }).click();
     await page.locator(".sfw-exam-row").filter({ hasText: "Study Lab Biology Exam" }).waitFor();
 
