@@ -367,7 +367,7 @@ async function main() {
 
     await page.getByRole("button", { name: "Learn & prepare", exact: true }).click();
     await page.getByLabel("Material title").fill("CI Biology notes");
-    await page.getByLabel("Subject").fill("Biology");
+    await page.locator(".sfplus-card").filter({ has: page.getByRole("heading", { name: "Course materials vault", exact: true }) }).getByLabel("Subject").fill("Biology");
     await page.locator("#sfplus-material-file").setInputFiles({
       name: "biology-notes.txt",
       mimeType: "text/plain",
@@ -378,7 +378,7 @@ async function main() {
 
     await page.getByLabel("Question").fill("What is mitosis?");
     await page.getByLabel("Answer").fill("Cell division that produces two daughter cells.");
-    await page.getByLabel("Subject").nth(1).fill("Biology");
+    await page.locator(".sfplus-card").filter({ has: page.getByRole("heading", { name: "Active-recall flashcards", exact: true }) }).getByLabel("Subject").fill("Biology");
     await page.getByRole("button", { name: "Add flashcard", exact: true }).click();
     await page.getByRole("heading", { name: "What is mitosis?", exact: true }).waitFor();
     await page.getByRole("button", { name: "Reveal answer", exact: true }).click();
