@@ -6,7 +6,7 @@
   "description": "StudyFlow MCP server and interactive MCP Apps UI for ChatGPT",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check validation.js",
+    "check": "node --check server.js && node --check app-server.js && node --check api/mcp.js && node --check api/health.js && node --check validation.js",
     "test": "node --test"
   },
   "dependencies": {
