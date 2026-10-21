@@ -73,6 +73,10 @@ function result(message, payload = {}) {
   };
 }
 
+function failure(message) {
+  return { isError: true, content: [{ type: "text", text: message }] };
+}
+
 export function createStudyFlowServer(requestToken) {
   const server = new McpServer({ name: "studyflow", version: "0.1.0" });
 
@@ -121,7 +125,7 @@ export function createStudyFlowServer(requestToken) {
         summary: `${visibleTasks.length} task(s), ${timetable.length} timetable entry/entries.`,
       });
     } catch (error) {
-      return result(error.message || "Could not load StudyFlow.");
+      return failure(error.message || "Could not load StudyFlow.");
     }
   });
 
@@ -154,7 +158,7 @@ export function createStudyFlowServer(requestToken) {
       const tasks = await loadCollection(client, userId, "tasks");
       return result(`Created task: ${task.title}`, { tasks, summary: "Task created." });
     } catch (error) {
-      return result(error.message || "Could not create task.");
+      return failure(error.message || "Could not create task.");
     }
   });
 
@@ -186,7 +190,7 @@ export function createStudyFlowServer(requestToken) {
         summary: "Task updated.",
       });
     } catch (error) {
-      return result(error.message || "Could not update task.");
+      return failure(error.message || "Could not update task.");
     }
   });
 
@@ -208,7 +212,7 @@ export function createStudyFlowServer(requestToken) {
         summary: "Task deleted.",
       });
     } catch (error) {
-      return result(error.message || "Could not delete task.");
+      return failure(error.message || "Could not delete task.");
     }
   });
 
@@ -224,7 +228,7 @@ export function createStudyFlowServer(requestToken) {
       const timetable = await loadCollection(client, userId, "timetable");
       return result(`Loaded ${timetable.length} timetable entries.`, { timetable, summary: "Timetable loaded." });
     } catch (error) {
-      return result(error.message || "Could not load timetable.");
+      return failure(error.message || "Could not load timetable.");
     }
   });
 
