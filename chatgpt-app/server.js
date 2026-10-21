@@ -132,7 +132,7 @@ function createStudyFlowServer(requestToken) {
     inputSchema: {
       title: z.string().trim().min(1).max(180),
       subject: z.string().trim().max(80).optional(),
-      deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      deadline: z.string().refine(isIsoDate, "Expected a real calendar date in YYYY-MM-DD format").optional(),
       priority: z.enum(["Low", "Medium", "High"]).default("Medium"),
       description: z.string().max(2000).optional(),
     },
@@ -166,7 +166,7 @@ function createStudyFlowServer(requestToken) {
       id: z.string().min(1),
       title: z.string().trim().min(1).max(180).optional(),
       subject: z.string().trim().max(80).optional(),
-      deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal("")).optional(),
+      deadline: z.string().refine((value) => value === "" || isIsoDate(value), "Expected YYYY-MM-DD or an empty string").optional(),
       priority: z.enum(["Low", "Medium", "High"]).optional(),
       description: z.string().max(2000).optional(),
       completed: z.boolean().optional(),
