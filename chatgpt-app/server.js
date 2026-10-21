@@ -11,6 +11,7 @@ import {
   RESOURCE_MIME_TYPE,
 } from "@modelcontextprotocol/ext-apps/server";
 import { z } from "zod";
+import { isIsoDate, normalizeTaskRow, normalizeTimetableRow } from "./validation.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const widgetHtml = readFileSync(join(__dirname, "public", "studyflow-widget.html"), "utf8");
@@ -23,8 +24,8 @@ const TABLES = {
   focusSessions: "studyflow_focus_sessions",
 };
 
-function supabaseForRequest(extra) {
-  const token = extra?.authInfo?.token;
+function supabaseForRequest(extra, requestToken) {
+  const token = extra?.authInfo?.token || requestToken;
   if (!token) {
     throw new Error("StudyFlow needs an authenticated Supabase access token. Configure the app's OAuth/authentication flow before connecting real accounts.");
   }
@@ -38,16 +39,11 @@ function supabaseForRequest(extra) {
   return { client, token };
 }
 
-async function userClient(extra) {
-  const { client, token } = supabaseForRequest(extra);
+async function userClient(extra, requestToken) {
+  const { client, token } = supabaseForRequest(extra, requestToken);
   const { data, error } = await client.auth.getUser(token);
   if (error || !data?.user?.id) throw new Error("Authentication failed. Sign in to StudyFlow again.");
   return { client, userId: data.user.id };
-}
-
-function cleanTask(row) {
-  const data = row?.data && typeof row.data === "object" && !Array.isArray(row.data) ? row.data : {};
-  return { ...data, id: row.record_id };
 }
 
 async function loadCollection(client, userId, collection) {
@@ -57,7 +53,8 @@ async function loadCollection(client, userId, collection) {
     .order("updated_at", { ascending: false })
     .limit(200);
   if (error) throw new Error(`Could not load ${collection}: ${error.message}`);
-  return (data || []).map(cleanTask);
+  const normalize = collection === "tasks" ? normalizeTaskRow : normalizeTimetableRow;
+  return (data || []).map(normalize).filter(Boolean);
 }
 
 async function saveRecord(client, userId, collection, record) {
@@ -77,7 +74,7 @@ function result(message, payload = {}) {
   };
 }
 
-function createStudyFlowServer() {
+function createStudyFlowServer(requestToken) {
   const server = new McpServer({ name: "studyflow", version: "0.1.0" });
 
   registerAppResource(server, "studyflow-dashboard", UI_URI, {}, async () => ({
@@ -113,7 +110,7 @@ function createStudyFlowServer() {
     _meta: { ui: { resourceUri: UI_URI } },
   }, async ({ includeCompleted = false } = {}, extra) => {
     try {
-      const { client, userId } = await userClient(extra);
+      const { client, userId } = await userClient(extra, requestToken);
       const [tasks, timetable] = await Promise.all([
         loadCollection(client, userId, "tasks"),
         loadCollection(client, userId, "timetable"),
@@ -183,7 +180,7 @@ function createStudyFlowServer() {
         .select("record_id,data").eq("user_id", userId).eq("record_id", id).maybeSingle();
       if (error) throw error;
       if (!data) return result("Task not found in your account.");
-      const task = { ...cleanTask(data), ...patch, id };
+      const task = { ...normalizeTaskRow(data), ...patch, id };
       await saveRecord(client, userId, "tasks", task);
       return result(`Updated task: ${task.title}`, {
         tasks: await loadCollection(client, userId, "tasks"),
@@ -254,7 +251,8 @@ const httpServer = createServer(async (req, res) => {
   if (url.pathname === MCP_PATH && ["POST", "GET", "DELETE"].includes(req.method || "")) {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
-    const server = createStudyFlowServer();
+    const bearer = /^Bearer\\s+(.+)$/i.exec(req.headers.authorization || "");
+    const server = createStudyFlowServer(bearer?.[1]);
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     res.on("close", () => { transport.close(); server.close(); });
     try {
