@@ -11,9 +11,11 @@ function originFor(req) {
 
 function metadata(req) {
   const origin = originFor(req);
+  const supabaseUrl = process.env.SUPABASE_URL;
+  if (!supabaseUrl) return null;
   return {
     resource: new URL(MCP_PATH, origin).toString(),
-    authorization_servers: [`${process.env.SUPABASE_URL || ""}/auth/v1`.replace(/\/$/, "")],
+    authorization_servers: [new URL("/auth/v1", supabaseUrl).toString()],
     scopes_supported: ["openid", "email", "profile"],
     bearer_methods_supported: ["header"],
   };
