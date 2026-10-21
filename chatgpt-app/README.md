@@ -1,6 +1,6 @@
 # StudyFlow ChatGPT app (MCP)
 
-This folder adds a separate Model Context Protocol (MCP) server and interactive MCP Apps widget to the existing React/Supabase StudyFlow project. It does not replace or modify the existing web app.
+This folder adds a separate Model Context Protocol (MCP) server and interactive MCP Apps widget to the existing React/Supabase StudyFlow project. It does not replace or modify the existing web app. It supports local Node hosting and Vercel serverless routing (`/mcp` rewrites to `/api/mcp`).
 
 ## Included tools
 
@@ -38,7 +38,7 @@ Health check: `GET /`; MCP endpoint: `POST/GET/DELETE /mcp`.
 
 ## Connect to ChatGPT
 
-The server must be deployed at a public HTTPS URL, then connect `https://YOUR-HOST/mcp` through ChatGPT's custom MCP app setup. The exact availability of custom app creation, write tools, and authentication depends on the ChatGPT plan/workspace and current rollout. Configure OAuth before attempting normal account sign-in.
+The service can be deployed as a separate Vercel project with its root directory set to `chatgpt-app`; its public MCP endpoint is `/mcp`. The service must have `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` configured. Do not use the existing `sflow` frontend project's root directory for this backend. The exact availability of custom app creation, write tools, and authentication depends on the ChatGPT plan/workspace and current rollout. Configure OAuth before attempting normal account sign-in.
 
 ## Automated checks
 
