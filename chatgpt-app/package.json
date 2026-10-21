@@ -1,0 +1,20 @@
+{
+  "name": "studyflow-chatgpt-app",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "StudyFlow MCP server and interactive MCP Apps UI for ChatGPT",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.2",
+    "@modelcontextprotocol/ext-apps": "^1.0.1",
+    "@supabase/supabase-js": "^2.116.0",
+    "zod": "^3.25.76"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
