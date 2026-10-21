@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/.well-known/oauth-protected-resource", "destination": "/api/oauth-protected-resource" },
+    { "source": "/mcp", "destination": "/api/mcp" },
+    { "source": "/", "destination": "/api/health" }
+  ]
+}

@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Authorize StudyFlow access</title>
+<style>
+:root{font-family:Inter,ui-sans-serif,system-ui,-apple-system,sans-serif;color:#111827;background:#f6f7fb}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}
+main{width:min(100%,480px);background:#fff;border:1px solid #e5e7eb;border-radius:20px;padding:28px;box-shadow:0 12px 40px #1118270d}
+.brand{font-size:12px;font-weight:800;letter-spacing:.12em;color:#4f46e5;text-transform:uppercase}
+h1{font-size:25px;letter-spacing:-.04em;margin:12px 0 8px}p{color:#6b7280;line-height:1.55}
+label{display:block;font-size:13px;font-weight:650;margin:14px 0 6px}
+input{width:100%;border:1px solid #d1d5db;border-radius:10px;padding:12px;font:inherit}
+button{border:0;border-radius:10px;padding:12px 15px;font:inherit;font-weight:700;cursor:pointer}
+.primary{background:#4f46e5;color:#fff}.secondary{background:#f3f4f6;color:#111827}.actions{display:flex;gap:10px;margin-top:20px}.actions button{flex:1}
+#status{margin-top:14px;font-size:13px;overflow-wrap:anywhere}.error{color:#b91c1c!important}
+.detail{background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;padding:14px;margin-top:18px}.detail strong{color:#111827}.scopes{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.scope{font-size:12px;border-radius:99px;padding:5px 9px;background:#eef2ff;color:#3730a3}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">StudyFlow Security</div>
+  <h1 id="heading">Connect your StudyFlow account</h1>
+  <p id="intro">Sign in with the account you already use for StudyFlow. Your password is sent directly to Supabase Auth, not to ChatGPT.</p>
+  <form id="login-form">
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" required>
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <div class="actions"><button class="primary" type="submit" id="login-button">Sign in</button></div>
+  </form>
+  <section id="consent" hidden>
+    <p>Review the requesting app and permissions before continuing. If approved, StudyFlow in ChatGPT can read your tasks and timetable, create tasks, mark tasks complete, and edit tasks. Deletion is intended only when you explicitly request it.</p>
+    <div class="detail">
+      <p><strong>App:</strong> <span id="client-name">Unknown app</span></p>
+      <p><strong>Redirect:</strong> <span id="redirect-uri">Not provided</span></p>
+      <p><strong>Permissions requested:</strong></p>
+      <div id="scopes" class="scopes"></div>
+    </div>
+    <div class="actions">
+      <button class="secondary" id="deny-button" type="button">Deny</button>
+      <button class="primary" id="approve-button" type="button">Approve access</button>
+    </div>
+  </section>
+  <div id="status" role="status" aria-live="polite"></div>
+</main>
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.116.0";
+
+const SUPABASE_URL = "https://qwcfplsduppccjdwdchz.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_V-WNwRuQ_hOgLglUYqLhag_GZOUoamt";
+const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storageKey: "sb-qwcfplsduppccjdwdchz-auth-token"
+  }
+});
+const authorizationId = new URLSearchParams(location.search).get("authorization_id");
+const status = document.getElementById("status");
+const loginForm = document.getElementById("login-form");
+const consent = document.getElementById("consent");
+const loginButton = document.getElementById("login-button");
+const approveButton = document.getElementById("approve-button");
+const denyButton = document.getElementById("deny-button");
+
+function setStatus(message, isError = false) {
+  status.textContent = message;
+  status.classList.toggle("error", isError);
+}
+function showLogin() {
+  loginForm.hidden = false;
+  consent.hidden = true;
+}
+async function showConsent() {
+  if (!authorizationId) {
+    setStatus("This authorization request is missing its ID. Return to ChatGPT and reconnect StudyFlow.", true);
+    return;
+  }
+  const { data, error } = await supabase.auth.oauth.getAuthorizationDetails(authorizationId);
+  if (error || !data) {
+    setStatus(error?.message || "Could not load authorization details. Make sure OAuth is enabled for this Supabase project.", true);
+    return;
+  }
+  if (!("authorization_id" in data)) {
+    if (data.redirect_url) location.assign(data.redirect_url);
+    else setStatus("The authorization response was incomplete.", true);
+    return;
+  }
+  document.getElementById("client-name").textContent = data.client?.name || "ChatGPT app";
+  document.getElementById("redirect-uri").textContent = data.redirect_uri || "Not provided";
+  const scopes = (data.scope || "").split(" ").filter(Boolean);
+  const scopeBox = document.getElementById("scopes");
+  scopeBox.replaceChildren();
+  for (const scope of scopes) {
+    const chip = document.createElement("span");
+    chip.className = "scope";
+    chip.textContent = scope;
+    scopeBox.append(chip);
+  }
+  document.getElementById("heading").textContent = "Approve StudyFlow access";
+  document.getElementById("intro").textContent = "Only approve if you recognize the app and agree with the permissions shown below.";
+  loginForm.hidden = true;
+  consent.hidden = false;
+  setStatus("");
+}
+loginForm.addEventListener("submit", async event => {
+  event.preventDefault();
+  loginButton.disabled = true;
+  setStatus("Signing in securely…");
+  try {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: document.getElementById("email").value.trim(),
+      password: document.getElementById("password").value
+    });
+    if (error) throw error;
+    document.getElementById("password").value = "";
+    await showConsent();
+  } catch (error) {
+    setStatus(error?.message || "Sign-in failed.", true);
+  } finally {
+    loginButton.disabled = false;
+  }
+});
+approveButton.addEventListener("click", async () => {
+  approveButton.disabled = true;
+  denyButton.disabled = true;
+  setStatus("Approving access…");
+  try {
+    const { data, error } = await supabase.auth.oauth.approveAuthorization(authorizationId);
+    if (error) throw error;
+    if (!data?.redirect_url) throw new Error("Supabase did not return an authorization redirect.");
+    location.assign(data.redirect_url);
+  } catch (error) {
+    setStatus(error?.message || "Could not approve access.", true);
+    approveButton.disabled = false;
+    denyButton.disabled = false;
+  }
+});
+denyButton.addEventListener("click", async () => {
+  approveButton.disabled = true;
+  denyButton.disabled = true;
+  setStatus("Denying access…");
+  try {
+    const { data, error } = await supabase.auth.oauth.denyAuthorization(authorizationId);
+    if (error) throw error;
+    if (!data?.redirect_url) throw new Error("Supabase did not return a denial redirect.");
+    location.assign(data.redirect_url);
+  } catch (error) {
+    setStatus(error?.message || "Could not deny access.", true);
+    approveButton.disabled = false;
+    denyButton.disabled = false;
+  }
+});
+
+if (!authorizationId) {
+  setStatus("Missing authorization_id. Start the connection from ChatGPT.", true);
+} else {
+  const { data, error } = await supabase.auth.getSession();
+  if (error) {
+    setStatus(error.message, true);
+    showLogin();
+  } else if (data.session) {
+    loginForm.hidden = true;
+    await showConsent();
+  } else {
+    showLogin();
+  }
+}
+</script>
+</body>
+</html>

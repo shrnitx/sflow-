@@ -1,0 +1,251 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { createClient } from "@supabase/supabase-js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+  registerAppResource,
+  registerAppTool,
+  RESOURCE_MIME_TYPE,
+} from "@modelcontextprotocol/ext-apps/server";
+import { z } from "zod";
+import { isIsoDate, normalizeTaskRow, normalizeTimetableRow } from "./validation.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const widgetHtml = readFileSync(join(__dirname, "public", "studyflow-widget.html"), "utf8");
+const PORT = Number(process.env.PORT || 8787);
+const MCP_PATH = "/mcp";
+const UI_URI = "ui://studyflow/dashboard.html";
+const TABLES = {
+  tasks: "studyflow_tasks",
+  timetable: "studyflow_timetable",
+  focusSessions: "studyflow_focus_sessions",
+};
+
+export async function validateSupabaseAccessToken(token) {
+  if (!token) return { valid: false, reason: "missing" };
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) return { valid: false, reason: "configuration" };
+  const client = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const { data, error } = await client.auth.getUser(token);
+  return { valid: !error && Boolean(data?.user?.id), reason: error ? "invalid" : undefined };
+}
+
+function supabaseForRequest(extra, requestToken) {
+  const token = extra?.authInfo?.token || requestToken;
+  if (!token) {
+    throw new Error("StudyFlow needs an authenticated Supabase access token. Configure the app's OAuth/authentication flow before connecting real accounts.");
+  }
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) throw new Error("Server configuration is incomplete: set SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY.");
+  const client = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  return { client, token };
+}
+
+async function userClient(extra, requestToken) {
+  const { client, token } = supabaseForRequest(extra, requestToken);
+  const { data, error } = await client.auth.getUser(token);
+  if (error || !data?.user?.id) throw new Error("Authentication failed. Sign in to StudyFlow again.");
+  return { client, userId: data.user.id };
+}
+
+async function loadCollection(client, userId, collection) {
+  const { data, error } = await client.from(TABLES[collection])
+    .select("record_id,data,updated_at")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false })
+    .limit(200);
+  if (error) throw new Error(`Could not load ${collection}: ${error.message}`);
+  const normalize = collection === "tasks" ? normalizeTaskRow : normalizeTimetableRow;
+  return (data || []).map(normalize).filter(Boolean);
+}
+
+async function saveRecord(client, userId, collection, record) {
+  const { error } = await client.from(TABLES[collection]).upsert({
+    user_id: userId,
+    record_id: record.id,
+    data: record,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "user_id,record_id" });
+  if (error) throw new Error(`Could not save record: ${error.message}`);
+}
+
+function result(message, payload = {}) {
+  return {
+    content: [{ type: "text", text: message }],
+    structuredContent: payload,
+  };
+}
+
+function failure(message) {
+  return { isError: true, content: [{ type: "text", text: message }] };
+}
+
+export function createStudyFlowServer(requestToken) {
+  const server = new McpServer({ name: "studyflow", version: "0.1.0" });
+
+  registerAppResource(server, "studyflow-dashboard", UI_URI, {}, async () => ({
+    contents: [{ uri: UI_URI, mimeType: RESOURCE_MIME_TYPE, text: widgetHtml }],
+  }));
+
+  const outputSchema = {
+    tasks: z.array(z.object({
+      id: z.string(),
+      title: z.string(),
+      subject: z.string().optional(),
+      deadline: z.string().optional(),
+      priority: z.string().optional(),
+      completed: z.boolean().optional(),
+      description: z.string().optional(),
+    })).optional(),
+    timetable: z.array(z.object({
+      id: z.string(),
+      subject: z.string(),
+      day: z.number().optional(),
+      startTime: z.string().optional(),
+      endTime: z.string().optional(),
+      room: z.string().optional(),
+    })).optional(),
+    summary: z.string().optional(),
+  };
+
+  registerAppTool(server, "get_studyflow_dashboard", {
+    title: "Open StudyFlow dashboard",
+    description: "Loads the signed-in user's pending tasks, upcoming deadlines, and timetable for the interactive StudyFlow dashboard.",
+    inputSchema: { includeCompleted: z.boolean().optional() },
+    outputSchema,
+    _meta: { ui: { resourceUri: UI_URI } },
+  }, async ({ includeCompleted = false } = {}, extra) => {
+    try {
+      const { client, userId } = await userClient(extra, requestToken);
+      const [tasks, timetable] = await Promise.all([
+        loadCollection(client, userId, "tasks"),
+        loadCollection(client, userId, "timetable"),
+      ]);
+      const visibleTasks = includeCompleted ? tasks : tasks.filter((task) => !task.completed);
+      return result("StudyFlow dashboard loaded.", {
+        tasks: visibleTasks,
+        timetable,
+        summary: `${visibleTasks.length} task(s), ${timetable.length} timetable entry/entries.`,
+      });
+    } catch (error) {
+      return failure(error.message || "Could not load StudyFlow.");
+    }
+  });
+
+  registerAppTool(server, "create_study_task", {
+    title: "Create study task",
+    description: "Creates a task in the signed-in user's StudyFlow account. Use for a concrete task the user asked to add.",
+    inputSchema: {
+      title: z.string().trim().min(1).max(180),
+      subject: z.string().trim().max(80).optional(),
+      deadline: z.string().refine(isIsoDate, "Expected a real calendar date in YYYY-MM-DD format").optional(),
+      priority: z.enum(["Low", "Medium", "High"]).default("Medium"),
+      description: z.string().max(2000).optional(),
+    },
+    outputSchema,
+    _meta: { ui: { resourceUri: UI_URI } },
+  }, async (args, extra) => {
+    try {
+      const { client, userId } = await userClient(extra, requestToken);
+      const task = {
+        id: crypto.randomUUID(),
+        title: args.title.trim(),
+        subject: args.subject || "Other",
+        deadline: args.deadline || "",
+        priority: args.priority || "Medium",
+        description: args.description || "",
+        completed: false,
+        createdAt: new Date().toISOString(),
+      };
+      await saveRecord(client, userId, "tasks", task);
+      const tasks = await loadCollection(client, userId, "tasks");
+      return result(`Created task: ${task.title}`, { tasks, summary: "Task created." });
+    } catch (error) {
+      return failure(error.message || "Could not create task.");
+    }
+  });
+
+  registerAppTool(server, "update_study_task", {
+    title: "Update study task",
+    description: "Updates fields on a task belonging to the signed-in user. Requires the exact task id from StudyFlow.",
+    inputSchema: {
+      id: z.string().min(1),
+      title: z.string().trim().min(1).max(180).optional(),
+      subject: z.string().trim().max(80).optional(),
+      deadline: z.string().refine((value) => value === "" || isIsoDate(value), "Expected YYYY-MM-DD or an empty string").optional(),
+      priority: z.enum(["Low", "Medium", "High"]).optional(),
+      description: z.string().max(2000).optional(),
+      completed: z.boolean().optional(),
+    },
+    outputSchema,
+    _meta: { ui: { resourceUri: UI_URI } },
+  }, async ({ id, ...patch }, extra) => {
+    try {
+      const { client, userId } = await userClient(extra, requestToken);
+      const { data, error } = await client.from(TABLES.tasks)
+        .select("record_id,data").eq("user_id", userId).eq("record_id", id).maybeSingle();
+      if (error) throw error;
+      if (!data) return result("Task not found in your account.");
+      const currentTask = normalizeTaskRow(data);
+      if (!currentTask) return result("This task has invalid stored data and cannot be updated safely.");
+      const task = { ...currentTask, ...patch, id };
+      await saveRecord(client, userId, "tasks", task);
+      return result(`Updated task: ${task.title}`, {
+        tasks: await loadCollection(client, userId, "tasks"),
+        summary: "Task updated.",
+      });
+    } catch (error) {
+      return failure(error.message || "Could not update task.");
+    }
+  });
+
+  registerAppTool(server, "delete_study_task", {
+    title: "Delete study task",
+    description: "Permanently deletes one task belonging to the signed-in user. Only call when the user explicitly asks to delete it.",
+    inputSchema: { id: z.string().min(1) },
+    outputSchema,
+    _meta: { ui: { resourceUri: UI_URI } },
+  }, async ({ id }, extra) => {
+    try {
+      const { client, userId } = await userClient(extra, requestToken);
+      const { data, error } = await client.from(TABLES.tasks).delete()
+        .eq("user_id", userId).eq("record_id", id).select("record_id");
+      if (error) throw error;
+      if (!data?.length) return result("Task not found in your account.");
+      return result("Task deleted.", {
+        tasks: await loadCollection(client, userId, "tasks"),
+        summary: "Task deleted.",
+      });
+    } catch (error) {
+      return failure(error.message || "Could not delete task.");
+    }
+  });
+
+  registerAppTool(server, "get_study_timetable", {
+    title: "Get study timetable",
+    description: "Returns timetable entries for the authenticated StudyFlow user.",
+    inputSchema: {},
+    outputSchema,
+    _meta: { ui: { resourceUri: UI_URI } },
+  }, async (_args, extra) => {
+    try {
+      const { client, userId } = await userClient(extra, requestToken);
+      const timetable = await loadCollection(client, userId, "timetable");
+      return result(`Loaded ${timetable.length} timetable entries.`, { timetable, summary: "Timetable loaded." });
+    } catch (error) {
+      return failure(error.message || "Could not load timetable.");
+    }
+  });
+
+  return server;
+}
+

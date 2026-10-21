@@ -1,0 +1,27 @@
+name: StudyFlow MCP checks
+
+on:
+  pull_request:
+    paths:
+      - "chatgpt-app/**"
+      - ".github/workflows/studyflow-mcp.yml"
+  push:
+    branches: [main]
+    paths:
+      - "chatgpt-app/**"
+      - ".github/workflows/studyflow-mcp.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: chatgpt-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - run: npm run check
+      - run: npm test
