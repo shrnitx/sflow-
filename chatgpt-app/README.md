@@ -28,6 +28,7 @@ cd chatgpt-app
 cp .env.example .env
 npm install
 npm run check
+npm test
 npm start
 ```
 
@@ -38,6 +39,10 @@ Health check: `GET /`; MCP endpoint: `POST/GET/DELETE /mcp`.
 ## Connect to ChatGPT
 
 The server must be deployed at a public HTTPS URL, then connect `https://YOUR-HOST/mcp` through ChatGPT's custom MCP app setup. The exact availability of custom app creation, write tools, and authentication depends on the ChatGPT plan/workspace and current rollout. Configure OAuth before attempting normal account sign-in.
+
+## Automated checks
+
+A GitHub Actions workflow runs syntax checks and unit tests when this app changes. Tests cover calendar-date validation and normalization of task/timetable database rows. These checks do not replace an authenticated end-to-end test against a real Supabase project.
 
 ## Next implementation milestones
 
