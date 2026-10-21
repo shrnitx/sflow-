@@ -38,7 +38,7 @@ Health check: `GET /`; MCP endpoint: `POST/GET/DELETE /mcp`.
 
 ## Connect to ChatGPT
 
-The service can be deployed as a separate Vercel project with its root directory set to `chatgpt-app`; its public MCP endpoint is `/mcp`. The service must have `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `MCP_PUBLIC_URL` configured. Do not change the existing `sflow` frontend project's root directory for this backend. The current Vercel connector did not grant access to the target team for project creation/deployment, so no backend deployment has been made. The exact availability of custom app creation and full MCP tools depends on the ChatGPT plan/workspace and current rollout.
+The service can be deployed as a separate Vercel project with its root directory set to `chatgpt-app`; its public MCP endpoint is `/mcp`. The service must have `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `MCP_PUBLIC_URL` configured. Do not change the existing `sflow` frontend project's root directory for this backend. The current Vercel connection does not have access to the target team, and an attempted Supabase Edge Function deployment returned an internal deployment error; no backend function was created or deployed. The exact availability of custom app creation and full MCP tools depends on the ChatGPT plan/workspace and current rollout.
 
 ## Automated checks
 
