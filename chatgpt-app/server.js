@@ -132,7 +132,7 @@ function createStudyFlowServer(requestToken) {
     inputSchema: {
       title: z.string().trim().min(1).max(180),
       subject: z.string().trim().max(80).optional(),
-      deadline: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/).optional(),
+      deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       priority: z.enum(["Low", "Medium", "High"]).default("Medium"),
       description: z.string().max(2000).optional(),
     },
@@ -166,7 +166,7 @@ function createStudyFlowServer(requestToken) {
       id: z.string().min(1),
       title: z.string().trim().min(1).max(180).optional(),
       subject: z.string().trim().max(80).optional(),
-      deadline: z.string().regex(/^\\d{4}-\\d{2}-\\d{2}$/).or(z.literal("")).optional(),
+      deadline: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).or(z.literal("")).optional(),
       priority: z.enum(["Low", "Medium", "High"]).optional(),
       description: z.string().max(2000).optional(),
       completed: z.boolean().optional(),
@@ -251,7 +251,7 @@ const httpServer = createServer(async (req, res) => {
   if (url.pathname === MCP_PATH && ["POST", "GET", "DELETE"].includes(req.method || "")) {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Expose-Headers", "Mcp-Session-Id");
-    const bearer = /^Bearer\\s+(.+)$/i.exec(req.headers.authorization || "");
+    const bearer = /^Bearer\s+(.+)$/i.exec(req.headers.authorization || "");
     const server = createStudyFlowServer(bearer?.[1]);
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true });
     res.on("close", () => { transport.close(); server.close(); });
