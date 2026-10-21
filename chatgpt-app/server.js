@@ -36,8 +36,14 @@ const httpServer = createServer(async (req, res) => {
     return;
   }
   if (req.method === "GET" && url.pathname === "/.well-known/oauth-protected-resource") {
+    const document = metadata(req);
+    if (!document) {
+      res.writeHead(503, { "content-type": "application/json" });
+      res.end(JSON.stringify({ error: "server_configuration", error_description: "SUPABASE_URL is not configured." }));
+      return;
+    }
     res.writeHead(200, { "content-type": "application/json", "Access-Control-Allow-Origin": "*" });
-    res.end(JSON.stringify(metadata(req)));
+    res.end(JSON.stringify(document));
     return;
   }
   if (url.pathname === MCP_PATH && req.method === "OPTIONS") {
