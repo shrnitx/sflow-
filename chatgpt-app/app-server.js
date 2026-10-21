@@ -195,7 +195,9 @@ export function createStudyFlowServer(requestToken) {
         .select("record_id,data").eq("user_id", userId).eq("record_id", id).maybeSingle();
       if (error) throw error;
       if (!data) return result("Task not found in your account.");
-      const task = { ...normalizeTaskRow(data), ...patch, id };
+      const currentTask = normalizeTaskRow(data);
+      if (!currentTask) return result("This task has invalid stored data and cannot be updated safely.");
+      const task = { ...currentTask, ...patch, id };
       await saveRecord(client, userId, "tasks", task);
       return result(`Updated task: ${task.title}`, {
         tasks: await loadCollection(client, userId, "tasks"),
