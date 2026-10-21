@@ -140,7 +140,7 @@ function createStudyFlowServer(requestToken) {
     _meta: { ui: { resourceUri: UI_URI } },
   }, async (args, extra) => {
     try {
-      const { client, userId } = await userClient(extra);
+      const { client, userId } = await userClient(extra, requestToken);
       const task = {
         id: crypto.randomUUID(),
         title: args.title.trim(),
@@ -175,7 +175,7 @@ function createStudyFlowServer(requestToken) {
     _meta: { ui: { resourceUri: UI_URI } },
   }, async ({ id, ...patch }, extra) => {
     try {
-      const { client, userId } = await userClient(extra);
+      const { client, userId } = await userClient(extra, requestToken);
       const { data, error } = await client.from(TABLES.tasks)
         .select("record_id,data").eq("user_id", userId).eq("record_id", id).maybeSingle();
       if (error) throw error;
@@ -199,7 +199,7 @@ function createStudyFlowServer(requestToken) {
     _meta: { ui: { resourceUri: UI_URI } },
   }, async ({ id }, extra) => {
     try {
-      const { client, userId } = await userClient(extra);
+      const { client, userId } = await userClient(extra, requestToken);
       const { data, error } = await client.from(TABLES.tasks).delete()
         .eq("user_id", userId).eq("record_id", id).select("record_id");
       if (error) throw error;
@@ -221,7 +221,7 @@ function createStudyFlowServer(requestToken) {
     _meta: { ui: { resourceUri: UI_URI } },
   }, async (_args, extra) => {
     try {
-      const { client, userId } = await userClient(extra);
+      const { client, userId } = await userClient(extra, requestToken);
       const timetable = await loadCollection(client, userId, "timetable");
       return result(`Loaded ${timetable.length} timetable entries.`, { timetable, summary: "Timetable loaded." });
     } catch (error) {
