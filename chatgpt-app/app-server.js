@@ -23,6 +23,19 @@ const TABLES = {
   focusSessions: "studyflow_focus_sessions",
 };
 
+export async function validateSupabaseAccessToken(token) {
+  if (!token) return { valid: false, reason: "missing" };
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (!url || !key) return { valid: false, reason: "configuration" };
+  const client = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: `Bearer ${token}` } },
+  });
+  const { data, error } = await client.auth.getUser(token);
+  return { valid: !error && Boolean(data?.user?.id), reason: error ? "invalid" : undefined };
+}
+
 function supabaseForRequest(extra, requestToken) {
   const token = extra?.authInfo?.token || requestToken;
   if (!token) {
