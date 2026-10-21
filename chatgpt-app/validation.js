@@ -1,4 +1,4 @@
-const ISO_DATE = /^\\d{4}-\\d{2}-\\d{2}$/;
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export function isIsoDate(value) {
   if (typeof value !== "string" || !ISO_DATE.test(value)) return false;
